@@ -1,3 +1,10 @@
 cd FinCore-System
 cd fincore-app
+npm run dev
+
+cd FinCore-System
 cd fincore-api
+php artisan serve
+
+php artisan jwt:secret
+php artisan key:generate
