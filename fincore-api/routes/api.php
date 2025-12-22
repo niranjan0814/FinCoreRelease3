@@ -1,73 +1,76 @@
-// routes/api.php
+// routes/api.php - Add these routes
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
-use App\Http\Controllers\Api\UserPermissionController;
-use App\Http\Controllers\Api\UserRoleController;
+use App\Http\Controllers\Api\PermissionController;
 
-// Permission Management Routes
-Route::prefix('permissions')->group(function () {
-    Route::get('/', [PermissionController::class, 'index']);
-    Route::get('/groups', [PermissionController::class, 'groups']);
-    Route::get('/modules', [PermissionController::class, 'modules']);
-    Route::get('/module/{module}', [PermissionController::class, 'byModule']);
-    Route::post('/module/sync', [PermissionController::class, 'syncModule']);
-    Route::post('/group', [PermissionController::class, 'createGroup']);
-    Route::post('/', [PermissionController::class, 'store']);
-    Route::get('/{permission}', [PermissionController::class, 'show']);
-    Route::put('/{permission}', [PermissionController::class, 'update']);
-    Route::delete('/{permission}', [PermissionController::class, 'destroy']);
-});
-
-// Role Management Routes
-Route::prefix('roles')->group(function () {
-    Route::get('/', [RoleController::class, 'index']);
-    Route::get('/system', [RoleController::class, 'systemRoles']);
-    Route::get('/level/{level}', [RoleController::class, 'byLevel']);
-    Route::get('/default', [RoleController::class, 'defaultRole']);
-    Route::post('/', [RoleController::class, 'store']);
-    Route::get('/{role}', [RoleController::class, 'show']);
-    Route::put('/{role}', [RoleController::class, 'update']);
-    Route::delete('/{role}', [RoleController::class, 'destroy']);
-    Route::post('/{role}/permissions/sync', [RoleController::class, 'syncPermissions']);
-    Route::post('/{role}/permissions/assign', [RoleController::class, 'assignPermissions']);
-    Route::post('/{role}/permissions/remove', [RoleController::class, 'removePermissions']);
-});
-
-// User Permission Management Routes
-Route::prefix('users/{user}/permissions')->group(function () {
-    Route::get('/', [UserPermissionController::class, 'show']);
-    Route::get('/breakdown', [UserPermissionController::class, 'breakdown']);
-    Route::post('/assign', [UserPermissionController::class, 'assignPermission']);
-    Route::post('/remove', [UserPermissionController::class, 'removePermission']);
-    Route::post('/sync', [UserPermissionController::class, 'syncPermissions']);
-    Route::post('/check', [UserPermissionController::class, 'hasPermission']);
-});
-
-// User Role Management Routes
-Route::prefix('users/{user}/roles')->group(function () {
-    Route::get('/', [UserRoleController::class, 'getUserRoles']);
-    Route::post('/assign', [UserRoleController::class, 'assignRole']);
-    Route::post('/remove', [UserRoleController::class, 'removeRole']);
-    Route::post('/sync', [UserRoleController::class, 'syncRoles']);
-});
-
-// Utility routes for frontend
+// Public routes (no authentication required)
+// routes/api.php - Update auth routes
 Route::prefix('auth')->group(function () {
-    Route::get('/me/permissions', function () {
-        $user = auth()->user();
-        
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'permissions' => $user->getAllPermissionsFlattened(),
-                'roles' => $user->getRoleNamesFlattened(),
-                'direct_permissions' => $user->getDirectPermissionNames(),
-                'is_super_admin' => $user->isSuperAdmin(),
-                'is_admin' => $user->isAdmin(),
-            ]
-        ]);
-    })->middleware('auth:sanctum');
+    // Public routes
+    Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register']);
+    
+    // Protected routes
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::get('me', [AuthController::class, 'me']);
+        Route::get('permissions', [AuthController::class, 'permissions']);
+        Route::post('check-permission', [AuthController::class, 'checkPermission']);
+        Route::post('check-any-permission', [AuthController::class, 'checkAnyPermission']);
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('refresh', [AuthController::class, 'refresh']);
+    });
+});
+
+// Protected routes (authentication required)
+Route::middleware(['auth:sanctum'])->group(function () {
+    
+    // Auth routes
+    Route::prefix('auth')->group(function () {
+        Route::get('me', [AuthController::class, 'me']);
+        Route::get('permissions', [AuthController::class, 'permissions']);
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('refresh', [AuthController::class, 'refresh']);
+    });
+
+    // User Management (require specific permissions)
+    // routes/api.php - Update user routes section
+Route::prefix('users')->group(function () {
+    Route::get('/', [UserController::class, 'index'])->middleware('permission:users.view');
+    Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create');
+    Route::get('/{user}', [UserController::class, 'show'])->middleware('permission:users.view');
+    Route::put('/{user}', [UserController::class, 'update'])->middleware('permission:users.edit');
+    Route::delete('/{user}', [UserController::class, 'destroy'])->middleware('permission:users.delete');
+    
+    // Additional user endpoints
+    Route::post('/{user}/change-password', [UserController::class, 'changePassword'])->middleware('permission:users.edit');
+    Route::put('/{user}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.edit');
+    Route::post('/{user}/unlock', [UserController::class, 'unlock'])->middleware('permission:users.edit');
+    Route::get('/{user}/statistics', [UserController::class, 'getStatistics'])->middleware('permission:users.view');
+    Route::get('/{user}/activity-log', [UserController::class, 'getActivityLog'])->middleware('permission:users.view');
+    
+    // Bulk operations
+    Route::post('/bulk/status', [UserController::class, 'bulkUpdateStatus'])->middleware('permission:users.edit');
+});
+
+    // Permission Management
+    Route::prefix('permissions')->group(function () {
+        Route::get('/', [PermissionController::class, 'index'])->middleware('permission:permissions.view');
+        Route::post('/', [PermissionController::class, 'store'])->middleware('permission:permissions.create');
+        Route::get('/{permission}', [PermissionController::class, 'show'])->middleware('permission:permissions.view');
+        Route::put('/{permission}', [PermissionController::class, 'update'])->middleware('permission:permissions.edit');
+        Route::delete('/{permission}', [PermissionController::class, 'destroy'])->middleware('permission:permissions.delete');
+    });
+
+    // Role Management
+    Route::prefix('roles')->group(function () {
+        Route::get('/', [RoleController::class, 'index'])->middleware('permission:roles.view');
+        Route::post('/', [RoleController::class, 'store'])->middleware('permission:roles.create');
+        Route::get('/{role}', [RoleController::class, 'show'])->middleware('permission:roles.view');
+        Route::put('/{role}', [RoleController::class, 'update'])->middleware('permission:roles.edit');
+        Route::delete('/{role}', [RoleController::class, 'destroy'])->middleware('permission:roles.delete');
+    });
 });

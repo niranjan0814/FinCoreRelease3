@@ -19,6 +19,22 @@ class BaseController extends Controller
         ], $code);
     }
 
+    // app/Http/Controllers/Api/BaseController.php - Add this method
+    protected function successWithMeta($data = null, string $message = 'Success', $meta = [], int $code = 200): JsonResponse
+    {
+        $response = [
+            'success' => true,
+            'message' => $message,
+            'data' => $data,
+        ];
+
+        if (!empty($meta)) {
+            $response['meta'] = $meta;
+        }
+
+        return response()->json($response, $code);
+    }
+
     /**
      * Error response
      */
@@ -66,6 +82,14 @@ class BaseController extends Controller
     protected function forbidden(string $message = 'Forbidden'): JsonResponse
     {
         return $this->error($message, 403);
+    }
+
+    /**
+     * Server error response
+     */
+    protected function serverError(string $message = 'Internal server error'): JsonResponse
+    {
+        return $this->error($message, 500);
     }
 
     /**

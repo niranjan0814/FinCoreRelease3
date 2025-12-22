@@ -123,16 +123,28 @@ class RolePermissionSeeder extends Seeder
             ])->get();
             $staff->syncPermissions($staffPermissions);
 
+          
             // Create super admin user
             $superAdminUser = User::create([
-                'name' => 'Super Admin',
+                'user_name' => 'Super Admin',
                 'email' => 'superadmin@example.com',
                 'password' => Hash::make('password123'),
-                'phone' => '1234567890',
-                'status' => 'active',
+                'is_active' => true,
             ]);
 
             $superAdminUser->assignRole('super_admin');
+
+            // Create staff details with phone
+            StaffDetail::create([
+                'user_id' => $superAdminUser->id,
+                'employee_id' => 'EMP001',
+                'designation' => 'System Administrator',
+                'department' => 'IT',
+                'phone' => '1234567890', // Phone moved here
+                'joining_date' => now(),
+                'employment_type' => 'permanent',
+                'salary' => 100000,
+            ]);
 
             DB::commit();
 

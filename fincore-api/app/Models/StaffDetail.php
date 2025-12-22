@@ -15,6 +15,7 @@ class StaffDetail extends Model
         'employee_id',
         'designation',
         'department',
+        'phone', // Add phone here since removed from users table
         'joining_date',
         'leaving_date',
         'salary',
