@@ -110,13 +110,9 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
     ];
 
     const loanMenuItems: MenuItem[] = [
-        // { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" />, permission: 'loans.create' },
-        // { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" />, permission: 'loans.approve' },
-        // { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" />, permission: 'loans.view' }
-
-        { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" /> },
-        { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" /> },
-        { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" /> }
+        { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" />, permission: 'loans.create' },
+        { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" />, permission: 'loans.approve' },
+        { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" />, permission: 'loans.view' }
     ];
 
     const collectionMenuItems: MenuItem[] = [

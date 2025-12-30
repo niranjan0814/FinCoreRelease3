@@ -54,6 +54,57 @@ export const staffService = {
         }
     },
 
+    getStaffDropdownList: async (): Promise<Staff[]> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/staffs/dropdown-list`, { headers: getHeaders() });
+            if (!response.ok) return [];
+
+            const json = await response.json();
+            return json.data || [];
+        } catch (error) {
+            console.error("Error fetching staff dropdown list", error);
+            return [];
+        }
+    },
+
+    getWitnessCandidates: async (): Promise<Staff[]> => {
+        try {
+            // Try fetching by role to avoid permission issues with full list
+            const roles = ['manager', 'field_officer', 'staff'];
+            const promises = roles.map(role =>
+                fetch(`${API_BASE_URL}/staffs/by-role/${role}`, { headers: getHeaders() })
+                    .then(r => r.ok ? r.json() : { data: [] })
+                    .catch(() => ({ data: [] }))
+            );
+
+            const results = await Promise.all(promises);
+
+            // Flatten and verify uniqueness by staff_id
+            const allStaff: Staff[] = [];
+            const seenIds = new Set<string>();
+
+            results.forEach(res => {
+                if (res.data && Array.isArray(res.data)) {
+                    res.data.forEach((s: any) => {
+                        if (s.staff_id && !seenIds.has(s.staff_id)) {
+                            seenIds.add(s.staff_id);
+                            allStaff.push({
+                                staff_id: s.staff_id,
+                                full_name: s.full_name || s.name,
+                                email_id: s.email_id || '',
+                            });
+                        }
+                    });
+                }
+            });
+
+            return allStaff;
+        } catch (error) {
+            console.error("Error fetching witness candidates", error);
+            return [];
+        }
+    },
+
     // getRoles: async (): Promise<Role[]> => {
     //     try {
     //         const response = await fetch(`${API_BASE_URL}/roles`, { headers: getHeaders() });

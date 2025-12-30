@@ -22,6 +22,7 @@ export function LoanCreation() {
         centers,
         groups,
         loanProducts,
+        staffs,
         filteredCustomers,
         selectedCustomerRecord,
         handleNicChange,
@@ -61,9 +62,37 @@ export function LoanCreation() {
         { number: 4, title: 'Review & Submit', description: 'Review and submit for approval', icon: <FileTextIcon className="w-4 h-4" /> }
     ];
 
+    const validateStep1 = () => {
+        if (!formData.center) return 'Please select a Center.';
+        if (!formData.group) return 'Please select a Group.';
+        if (!formData.customer) return 'Please select a Customer.';
+        if (!selectedCustomerRecord) return 'Invalid Customer selected.';
+
+        // Guardian Validation
+        if (!formData.guardian_nic) return 'Guardian NIC is required.';
+        if (!formData.guardian_name) return 'Guardian Name is required.';
+        if (!formData.guardian_address) return 'Guardian Address is required.';
+        if (!formData.guardian_phone) return 'Guardian Phone is required.';
+
+        // Witness Validation
+        if (!formData.witness1_id) return 'Witness 01 is required.';
+        if (!formData.witness2_id) return 'Witness 02 is required.';
+        if (formData.witness1_id === formData.witness2_id) return 'Witness 01 and 02 cannot be the same person.';
+
+        return null;
+    };
+
     const handleNext = useCallback(() => {
+        if (currentStep === 1) {
+            const error = validateStep1();
+            if (error) {
+                alert(error);
+                return;
+            }
+        }
+
         if (currentStep < 4) setCurrentStep(currentStep + 1);
-    }, [currentStep]);
+    }, [currentStep, formData, selectedCustomerRecord]);
 
     const handlePrevious = useCallback(() => {
         if (currentStep > 1) setCurrentStep(currentStep - 1);
@@ -108,7 +137,17 @@ export function LoanCreation() {
                 interest_rate: Number(formData.interestRate),
                 loan_step: 'New Loan Application',
                 service_charge: Number(formData.processingFee || 0),
-                document_charge: Number(formData.documentationFee || 0)
+                document_charge: Number(formData.documentationFee || 0),
+                guardian_nic: formData.guardian_nic,
+                guardian_name: formData.guardian_name,
+                guardian_address: formData.guardian_address,
+                guardian_phone: formData.guardian_phone,
+                guarantor1_name: formData.guarantor1_name,
+                guarantor1_nic: formData.guarantor1_nic,
+                guarantor2_name: formData.guarantor2_name,
+                guarantor2_nic: formData.guarantor2_nic,
+                witness1_id: formData.witness1_id,
+                witness2_id: formData.witness2_id
             };
 
             const result = await loanService.createLoan(payload);
@@ -169,6 +208,8 @@ export function LoanCreation() {
                         onCenterChange={handleCenterChange}
                         onGroupChange={handleGroupChange}
                         onCustomerChange={handleCustomerChange}
+                        onFieldChange={updateFormField}
+                        staffs={staffs}
                     />
                 )}
 
@@ -183,7 +224,11 @@ export function LoanCreation() {
                 {currentStep === 3 && <DocumentUpload />}
 
                 {currentStep === 4 && (
-                    <ReviewSubmit formData={formData} selectedCustomerRecord={selectedCustomerRecord} />
+                    <ReviewSubmit
+                        formData={formData}
+                        selectedCustomerRecord={selectedCustomerRecord}
+                        staffs={staffs}
+                    />
                 )}
             </div>
 

@@ -14,6 +14,16 @@ export interface LoanFormData {
     insuranceFee: string;
     remarks: string;
     status: 'draft' | 'pending' | 'approved' | 'rejected';
+    guardian_nic: string;
+    guardian_name: string;
+    guardian_address: string;
+    guardian_phone: string;
+    guarantor1_name: string;
+    guarantor1_nic: string;
+    guarantor2_name: string;
+    guarantor2_nic: string;
+    witness1_id: string;
+    witness2_id: string;
 }
 
 export interface CustomerRecord {

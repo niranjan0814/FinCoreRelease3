@@ -86,6 +86,16 @@ class LoanController extends Controller
                 'loan_step' => 'nullable|string',
                 'service_charge' => 'nullable|numeric',
                 'document_charge' => 'nullable|numeric',
+                'guardian_nic' => 'required|string',
+                'guardian_name' => 'required|string',
+                'guardian_address' => 'required|string',
+                'guardian_phone' => 'required|string',
+                'guarantor1_name' => 'required|string',
+                'guarantor1_nic' => 'required|string',
+                'guarantor2_name' => 'required|string',
+                'guarantor2_nic' => 'required|string',
+                'witness1_id' => 'required|exists:staffs,staff_id|different:witness2_id',
+                'witness2_id' => 'required|exists:staffs,staff_id|different:witness1_id',
             ]);
 
             // Generate a unique loan ID
@@ -93,6 +103,33 @@ class LoanController extends Controller
             
             $loan = new Loan();
             $loan->fill($validated);
+            
+            // Map guarantor and witness structured fields to JSON columns if needed
+            $loan->g1_details = [
+                'name' => $request->guarantor1_name,
+                'nic' => $request->guarantor1_nic
+            ];
+            $loan->g2_details = [
+                'name' => $request->guarantor2_name,
+                'nic' => $request->guarantor2_nic
+            ];
+            
+            if ($request->witness1_id) {
+                $staff1 = \App\Models\Staff::find($request->witness1_id);
+                $loan->w1_details = [
+                    'staff_id' => $request->witness1_id,
+                    'name' => $staff1 ? $staff1->full_name : 'N/A'
+                ];
+            }
+            
+            if ($request->witness2_id) {
+                $staff2 = \App\Models\Staff::find($request->witness2_id);
+                $loan->w2_details = [
+                    'staff_id' => $request->witness2_id,
+                    'name' => $staff2 ? $staff2->full_name : 'N/A'
+                ];
+            }
+
             $loan->loan_id = $loanId;
             $loan->status = 'pending_1st';
             $loan->approval_level = 0;

@@ -147,6 +147,21 @@ class StaffController extends Controller
     }
 
     /**
+     * Get all staff for dropdowns (lightweight).
+     */
+    public function list()
+    {
+        // Use all() to ensure safety and match index() behavior
+        $staffs = Staff::all();
+        
+        return response()->json([
+            'statusCode' => 2000,
+            'message' => 'Staff list for dropdown fetched successfully',
+            'data' => $staffs
+        ], 200);
+    }
+
+    /**
      * Get staff by role (for dropdowns).
      */
     public function byRole($role)

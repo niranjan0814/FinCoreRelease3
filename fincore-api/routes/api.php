@@ -227,6 +227,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Staff Management
         Route::prefix('staffs')->group(function () {
+            Route::get('/dropdown-list', [StaffController::class, 'list']); // New dropdown endpoint
             Route::get('/', [StaffController::class, 'index'])->middleware('permission:staff.view');
             Route::get('/by-role/{role}', [StaffController::class, 'byRole']); 
             Route::post('/', [StaffController::class, 'store'])->middleware('permission:staff.create');

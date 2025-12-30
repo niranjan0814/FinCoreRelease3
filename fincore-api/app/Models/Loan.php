@@ -44,6 +44,10 @@ class Loan extends Model
         'reduce_presenence_in_interest',
         'reduce_presentence_in_capital',
         'document_id',
+        'guardian_nic',
+        'guardian_name',
+        'guardian_address',
+        'guardian_phone',
     ];
 
     protected $casts = [
