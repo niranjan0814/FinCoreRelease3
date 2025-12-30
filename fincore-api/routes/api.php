@@ -138,6 +138,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'show'])->middleware('permission:customers.view');
         Route::put('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'update'])->middleware('permission:customers.edit');
         Route::delete('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'destroy'])->middleware('permission:customers.delete');
+    });
+
     // Staff Session & Attendance Management
     // (Must be accessible to START or RESUME a session)
     Route::prefix('sessions')->group(function () {
