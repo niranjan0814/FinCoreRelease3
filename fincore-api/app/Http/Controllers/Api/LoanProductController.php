@@ -19,7 +19,7 @@ class LoanProductController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = LoanProduct::query();
+            $query = LoanProduct::with('customer');
 
             // Apply filters if provided
             if ($request->has('product_name')) {
@@ -76,7 +76,7 @@ class LoanProductController extends Controller
     {
         try {
             $validated = $request->validate([
-                'product_name' => 'required|string|max:255',
+                'product_name' => 'required|string|max:255|unique:loan_products,product_name',
                 'product_details' => 'nullable|string',
                 'term_type' => 'required|string|max:255',
                 'regacine' => 'nullable|string|max:255',
@@ -90,7 +90,7 @@ class LoanProductController extends Controller
             ]);
 
             // Set default status as pending for approval
-            $validated['status'] = 'pending';
+            $validated['status'] = 'pending_1st';
             $validated['approval_level'] = 0;
 
             $loanProduct = LoanProduct::create($validated);
@@ -183,7 +183,7 @@ class LoanProductController extends Controller
             $loanProduct = LoanProduct::findOrFail($id);
 
             $validated = $request->validate([
-                'product_name' => 'sometimes|required|string|max:255',
+                'product_name' => 'sometimes|required|string|max:255|unique:loan_products,product_name,' . $id,
                 'product_details' => 'nullable|string',
                 'term_type' => 'sometimes|required|string|max:255',
                 'regacine' => 'nullable|string|max:255',
@@ -219,6 +219,57 @@ class LoanProductController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update loan product',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Process approval/rejection for a loan product
+     */
+    public function approve(Request $request, $id)
+    {
+        try {
+            $loanProduct = LoanProduct::findOrFail($id);
+            $action = $request->input('action'); // 'approve' or 'send_back'
+            
+            if ($action === 'approve') {
+                if ($loanProduct->approval_level === 0) {
+                    // First level approval
+                    if ($loanProduct->loan_amount > 200000) {
+                        $loanProduct->status = 'pending_2nd';
+                        $loanProduct->approval_level = 1;
+                    } else {
+                        $loanProduct->status = 'approved';
+                        $loanProduct->approval_level = 2; // Fully approved
+                    }
+                } elseif ($loanProduct->approval_level === 1) {
+                    // Second level approval
+                    $loanProduct->status = 'approved';
+                    $loanProduct->approval_level = 2;
+                }
+            } else {
+                $loanProduct->status = 'sent_back';
+                // Keeps the approval level at its current state or could reset to 0
+            }
+            
+            $loanProduct->save();
+
+            return response()->json([
+                'status' => 'success',
+                'status_code' => 2000,
+                'message' => 'Loan product status updated successfully',
+                'data' => $loanProduct
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Loan product not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to process loan approval',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -99,10 +99,23 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'investors.delete', 'display_name' => 'Delete Investors', 'module' => 'investors', 'permission_group_id' => 1],
 
                 //loan management
-                ['name' => 'loans.view', 'display_name' => 'View Loans', 'module' => 'loans', 'permission_group_id' => 1],
-                ['name' => 'loans.create', 'display_name' => 'Create Loans', 'module' => 'loans', 'permission_group_id' => 1],
-                ['name' => 'loans.edit', 'display_name' => 'Edit Loans', 'module' => 'loans', 'permission_group_id' => 1],
-                ['name' => 'loans.delete', 'display_name' => 'Delete Loans', 'module' => 'loans', 'permission_group_id' => 1],
+                // Loan Management
+                ['name' => 'loans.view', 'display_name' => 'View Loans', 'module' => 'loans', 'permission_group_id' => 4],
+                ['name' => 'loans.create', 'display_name' => 'Create Loans', 'module' => 'loans', 'permission_group_id' => 4],
+                ['name' => 'loans.edit', 'display_name' => 'Edit Loans', 'module' => 'loans', 'permission_group_id' => 4],
+                ['name' => 'loans.delete', 'display_name' => 'Delete Loans', 'module' => 'loans', 'permission_group_id' => 4],
+
+                // Loan Products
+                ['name' => 'loan_products.view', 'display_name' => 'View Loan Products', 'module' => 'loan_products', 'permission_group_id' => 4],
+                ['name' => 'loan_products.create', 'display_name' => 'Create Loan Products', 'module' => 'loan_products', 'permission_group_id' => 4],
+                ['name' => 'loan_products.edit', 'display_name' => 'Edit Loan Products', 'module' => 'loan_products', 'permission_group_id' => 4],
+                ['name' => 'loan_products.delete', 'display_name' => 'Delete Loan Products', 'module' => 'loan_products', 'permission_group_id' => 4],
+
+                // Investment Products
+                ['name' => 'investment_products.view', 'display_name' => 'View Investment Products', 'module' => 'investment_products', 'permission_group_id' => 12],
+                ['name' => 'investment_products.create', 'display_name' => 'Create Investment Products', 'module' => 'investment_products', 'permission_group_id' => 12],
+                ['name' => 'investment_products.edit', 'display_name' => 'Edit Investment Products', 'module' => 'investment_products', 'permission_group_id' => 12],
+                ['name' => 'investment_products.delete', 'display_name' => 'Delete Investment Products', 'module' => 'investment_products', 'permission_group_id' => 12],
 
                 // Role Management
                 ['name' => 'roles.view', 'display_name' => 'View Roles', 'module' => 'roles', 'permission_group_id' => 2],

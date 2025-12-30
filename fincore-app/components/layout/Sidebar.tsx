@@ -22,7 +22,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Download,
-    Calendar
+    Calendar,
+    Package
 } from 'lucide-react';
 import { Page } from './MainLayout';
 
@@ -96,10 +97,19 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
         }
     ];
 
+    const productMenuItems: MenuItem[] = [
+        { id: 'loan-product' as Page, label: 'Loan', icon: <DollarSign className="w-4 h-4" /> },
+        { id: 'investments' as Page, label: 'Investment', icon: <TrendingUp className="w-4 h-4" /> }
+    ];
+
     const loanMenuItems: MenuItem[] = [
-        { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" />, permission: 'loans.create' },
-        { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" />, permission: 'loans.approve' },
-        { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" />, permission: 'loans.view' }
+        // { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" />, permission: 'loans.create' },
+        // { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" />, permission: 'loans.approve' },
+        // { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" />, permission: 'loans.view' }
+
+        { id: 'loan-create' as Page, label: 'Create Loan', icon: <FileText className="w-4 h-4" /> },
+        { id: 'loan-approval' as Page, label: 'Loan Approval', icon: <Shield className="w-4 h-4" /> },
+        { id: 'loan-list' as Page, label: 'Loan List', icon: <ClipboardList className="w-4 h-4" /> }
     ];
 
     const collectionMenuItems: MenuItem[] = [
@@ -261,6 +271,63 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
 
                 {/* Main Menu Items */}
                 {menuItems.map(renderMenuItem)}
+
+                {/* Products Section */}
+                <div className="pt-3">
+                    {!isCollapsed && (
+                        <div className="px-3 mb-2">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Product</p>
+                        </div>
+                    )}
+
+                    {isCollapsed ? (
+                        <button
+                            onClick={() => toggleMenu('products')}
+                            className="w-full flex items-center justify-center px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all group relative"
+                            title="Product"
+                        >
+                            <Package className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                                Product
+                            </div>
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => toggleMenu('products')}
+                                className="w-full flex items-center justify-between px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Package className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+                                    <span className="text-sm font-medium">Product</span>
+                                </div>
+                                <ChevronDown
+                                    className={`w-4 h-4 transition-transform ${expandedMenus.includes('products') ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+                            {expandedMenus.includes('products') && (
+                                <div className="ml-8 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
+                                    {productMenuItems.map(item => {
+                                        const isActive = currentPage === item.id;
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                onClick={() => onNavigate(item.id)}
+                                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm ${isActive
+                                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
+                                                    }`}
+                                            >
+                                                {item.icon}
+                                                <span>{item.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
 
                 {/* Loans Section */}
                 <div className="pt-3">
@@ -468,35 +535,7 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                     )}
                 </div>
 
-                {/* Investment Management */}
-                {isMounted && authService.hasPermission('investments.view') && (
-                    <>
-                        {!isCollapsed && (
-                            <div className="px-3 mb-2 pt-3">
-                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Management</p>
-                            </div>
-                        )}
-
-                        <button
-                            onClick={() => onNavigate('investments')}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative ${currentPage === 'investments'
-                                ? 'bg-blue-600 text-white shadow-sm'
-                                : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                            title={isCollapsed ? 'Investment Management' : ''}
-                        >
-                            <div className={`${currentPage === 'investments' ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`}>
-                                <TrendingUp className="w-5 h-5" />
-                            </div>
-                            {!isCollapsed && <span className="text-sm font-medium">Investment</span>}
-                            {isCollapsed && (
-                                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                                    Investment Management
-                                </div>
-                            )}
-                        </button>
-                    </>
-                )}
+                {/* Staff Management */}
 
                 {/* Staff Management */}
                 {isMounted && authService.hasPermission('staff.view') && (

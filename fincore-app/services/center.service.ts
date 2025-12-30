@@ -26,11 +26,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export const centerService = {
     // Get all centers
     getCenters: async (): Promise<Center[]> => {
-        const response = await fetch(`${API_BASE_URL}/centers`, {
-            ...fetchOptions,
-            headers: getHeaders()
-        });
-        return handleResponse<Center[]>(response);
+        try {
+            const response = await fetch(`${API_BASE_URL}/centers`, {
+                ...fetchOptions,
+                headers: getHeaders()
+            });
+            return handleResponse<Center[]>(response);
+        } catch (error) {
+            console.error('Error fetching centers:', error);
+            return [];
+        }
     },
 
     // Get single center

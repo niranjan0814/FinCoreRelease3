@@ -30,7 +30,18 @@ class LoanProduct extends Model
         'customer_age_limited',
         'customer_monthly_income',
         'guarantor_monthly_income',
+        'status',
+        'approval_level',
+        'customer_id',
     ];
+
+    /**
+     * Get the customer associated with the loan product.
+     */
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
 
     /**
      * The attributes that should be cast.

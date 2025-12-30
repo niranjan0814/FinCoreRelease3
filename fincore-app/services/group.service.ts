@@ -25,10 +25,10 @@ export const groupService = {
             });
 
             const json: ApiResponse<Group[]> = await handleResponse(response);
-            return json.data;
+            return json.data || [];
         } catch (error) {
             console.error('Failed to fetch groups:', error);
-            throw error;
+            return [];
         }
     },
 

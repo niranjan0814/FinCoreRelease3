@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\CenterController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\LoanProductController;
+use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\InvestmentProductController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
@@ -52,12 +53,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [BranchController::class, 'destroy'])->middleware('permission:branches.delete');
     });
 
+    // Loans
+    Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
+    Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
+    Route::get('/loans/{id}', [LoanController::class, 'show'])->name('loans.show');
+    Route::patch('/loans/{id}/approve', [LoanController::class, 'approve'])->name('loans.approve');
+
     // Loan Product Management
     Route::prefix('loan-products')->group(function () {
         Route::get('/', [LoanProductController::class, 'index'])->middleware('permission:loan_products.view');
         Route::get('/filter', [LoanProductController::class, 'filter'])->middleware('permission:loan_products.view');
         Route::post('/', [LoanProductController::class, 'store'])->middleware('permission:loan_products.create');
         Route::get('/{id}', [LoanProductController::class, 'show'])->middleware('permission:loan_products.view');
+        Route::patch('/{id}/approve', [LoanProductController::class, 'approve'])->middleware('permission:loan_products.edit');
+        Route::get('/customer/{customer_id}', [LoanProductController::class, 'getByCustomerId'])->middleware('permission:loan_products.view');
         Route::put('/{id}', [LoanProductController::class, 'update'])->middleware('permission:loan_products.edit');
         Route::delete('/{id}', [LoanProductController::class, 'destroy'])->middleware('permission:loan_products.delete');
     });
