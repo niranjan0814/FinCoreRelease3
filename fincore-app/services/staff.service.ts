@@ -30,6 +30,7 @@ export const staffService = {
                 email: u.email,
                 role: (u.roles && u.roles.length > 0) ? (u.roles[0].display_name || u.roles[0].name) : (u.role || 'N/A'),
                 branch: u.branch?.name || (u.branch_id ? 'Branch ' + u.branch_id : '-'),
+                branchId: u.branch_id || null,
                 status: (u.is_active || u.status === 'Active' || u.status === 1) ? 'Active' : 'Inactive',
                 is_locked: u.is_locked || false,
                 locked_until: u.locked_until || null,

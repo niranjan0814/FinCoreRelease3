@@ -342,6 +342,30 @@ export const sessionService = {
     },
 
     /**
+     * Lock a user's account manually (for managers)
+     */
+    lockUserAccount: async (userId: number): Promise<{ success: boolean; message: string }> => {
+        try {
+            // Using a new endpoint for manual locking
+            const response = await fetch(`${API_BASE_URL}/sessions/user/${userId}/lock`, {
+                method: 'POST',
+                headers: getHeaders()
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to lock user account');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Lock user account error:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Approve attendance for a session (for managers)
      */
     approveAttendance: async (sessionId: number, remarks?: string): Promise<any> => {

@@ -62,6 +62,11 @@ class User extends Authenticatable
         return $this->hasOne(StaffDetail::class);
     }
 
+    public function staff()
+    {
+        return $this->hasOne(Staff::class, 'staff_id', 'user_name');
+    }
+
     public function personalAccessTokens()
     {
         return $this->hasMany(PersonalAccessToken::class, 'tokenable_id');
@@ -325,6 +330,20 @@ class User extends Authenticatable
             'locked_until' => null,
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * Lock user account
+     */
+    public function lockAccount(): void
+    {
+        $this->update([
+            'is_active' => false,
+            'locked_until' => null, // Explicitly active lock (not timed)
+        ]);
+
+        // Revoke all tokens to force logout
+        $this->tokens()->delete();
     }
 
     /**

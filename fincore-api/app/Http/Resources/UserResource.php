@@ -40,6 +40,13 @@ class UserResource extends JsonResource
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,
             
+            // Branch Information
+            'branch' => $this->staff && $this->staff->branch ? [
+                'id' => $this->staff->branch->id,
+                'name' => $this->staff->branch->branch_name,
+            ] : null,
+            'branch_id' => $this->staff ? $this->staff->branch_id : null,
+            
             // Computed attributes
             'initials' => $this->initials,
             'full_name' => $this->full_name,

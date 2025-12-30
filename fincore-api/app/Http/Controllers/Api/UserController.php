@@ -23,7 +23,7 @@ class UserController extends BaseController
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = User::with(['roles', 'permissions', 'staffDetail'])
+            $query = User::with(['roles', 'permissions', 'staffDetail', 'staff.branch'])
                 ->withCount(['roles', 'permissions']);
 
             // Search
@@ -474,6 +474,49 @@ class UserController extends BaseController
                 'user_id' => $id
             ]);
             return $this->serverError('Failed to unlock user account');
+        }
+    }
+
+    /**
+     * Lock user account
+     */
+    public function lock($id): JsonResponse
+    {
+        try {
+            $user = User::findOrFail($id);
+            
+            if ($user->is_locked) {
+                return $this->error('User account is already locked', 400);
+            }
+
+            // Don't allow self-locking
+            if ($user->id === auth()->id()) {
+                return $this->error('You cannot lock your own account', 400);
+            }
+
+            // Don't allow locking super admin
+            if ($user->isSuperAdmin()) {
+                return $this->error('Cannot lock super admin account', 400);
+            }
+
+            $user->lockAccount();
+
+            // Log activity
+            activity()
+                ->causedBy(auth()->user())
+                ->performedOn($user)
+                ->log('User account manually locked by manager');
+
+            return $this->success(
+                new UserResource($user), 
+                'User account locked successfully'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Lock user error: ' . $e->getMessage(), [
+                'user_id' => $id
+            ]);
+            return $this->serverError('Failed to lock user account');
         }
     }
 

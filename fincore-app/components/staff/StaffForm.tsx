@@ -5,6 +5,7 @@ import { Role } from '../../types/staff.types';
 import { staffService } from '../../services/staff.service';
 import { branchService } from '../../services/branch.service';
 import { Branch } from '../../types/branch.types';
+import { authService } from '../../services/auth.service';
 
 interface StaffFormProps {
     onClose: () => void;
@@ -25,7 +26,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
         name_with_initial: initialData?.name_with_initial || '',
         email: initialData?.email || '',
         roleId: initialData?.role ? findRoleId(initialData.role) : '',
-        branch: initialData?.branch?.replace('Branch ', '') || '',
+        branch: initialData?.branchId?.toString() || '',
         password: '',
         isActive: initialData ? initialData.status === 'Active' : true,
         // New Staff Fields
@@ -123,9 +124,11 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                             contactKey: details.contact_no || '',
                             age: details.age?.toString() || '',
                             gender: details.gender || 'Male',
-                            // Preserve branch if already set, or use from details
-                            branch: prev.branch || details.branch_id?.toString() || '',
-                            isActive: details.account_status === 'active'
+                            // Use branch_id from details, or fallback to already set branch
+                            branch: details.branch_id?.toString() || prev.branch || '',
+                            isActive: details.account_status
+                                ? details.account_status.toLowerCase() === 'active'
+                                : prev.isActive
                         }));
                     }
                 } catch (err) {
@@ -413,8 +416,8 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                         </div>
                     )}
 
-                    {/* Status Toggle for Editing */}
-                    {isEditing && (
+                    {/* Status Toggle for Editing - ONLY FOR SUPER ADMIN */}
+                    {isEditing && authService.hasRole('super_admin') && (
                         <div className="flex items-center gap-3 pt-2">
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input

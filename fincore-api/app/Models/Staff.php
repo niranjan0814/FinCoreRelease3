@@ -42,4 +42,9 @@ class Staff extends Model
         'monthly_target_amount' => 'decimal:2',
         'basic_salary' => 'decimal:2',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit, Trash2, Unlock, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Edit, Trash2, Unlock, Lock, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { User } from '../../types/staff.types';
 import { staffService } from '../../services/staff.service';
 import { sessionService } from '../../services/session.service';
@@ -18,6 +18,22 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [confirmModal, setConfirmModal] = useState<{
+        show: boolean;
+        title: string;
+        message: string;
+        type: 'warning' | 'danger' | 'info';
+        onConfirm: () => void;
+        showInput?: boolean;
+        inputLabel?: string;
+        inputValue?: string;
+    }>({
+        show: false,
+        title: '',
+        message: '',
+        type: 'info',
+        onConfirm: () => { }
+    });
 
     const handleNameClick = async (user: User) => {
         // Check if this user has a staffId (meaning they're a staff member)
@@ -38,19 +54,46 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
     };
 
     // Manager Actions
-    const handleUnlockUser = async (user: User) => {
-        if (!confirm(`Are you sure you want to unlock ${user.name}'s account?`)) return;
+    const handleUnlockUser = (user: User) => {
+        setConfirmModal({
+            show: true,
+            title: 'Unlock User Account',
+            message: `Are you sure you want to unlock ${user.name}'s account? This will restore their access to the system.`,
+            type: 'info',
+            onConfirm: async () => {
+                setLoadingAction(`unlock-${user.id}`);
+                try {
+                    await sessionService.unlockUserAccount(Number(user.id));
+                    toast.success(`${user.name}'s account has been unlocked`);
+                    onRefresh?.();
+                } catch (error: any) {
+                    toast.error(error.message || 'Failed to unlock account');
+                } finally {
+                    setLoadingAction(null);
+                }
+            }
+        });
+    };
 
-        setLoadingAction(`unlock-${user.id}`);
-        try {
-            await sessionService.unlockUserAccount(Number(user.id));
-            toast.success(`${user.name}'s account has been unlocked`);
-            onRefresh?.();
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to unlock account');
-        } finally {
-            setLoadingAction(null);
-        }
+    const handleLockUser = (user: User) => {
+        setConfirmModal({
+            show: true,
+            title: 'Lock User Account',
+            message: `Are you sure you want to LOCK ${user.name}'s account? This will immediately terminate any active session and prevent further access.`,
+            type: 'danger',
+            onConfirm: async () => {
+                setLoadingAction(`lock-${user.id}`);
+                try {
+                    await sessionService.lockUserAccount(Number(user.id));
+                    toast.success(`${user.name}'s account has been manually locked`);
+                    onRefresh?.();
+                } catch (error: any) {
+                    toast.error(error.message || 'Failed to lock account');
+                } finally {
+                    setLoadingAction(null);
+                }
+            }
+        });
     };
 
     const handleApproveAttendance = async (user: User) => {
@@ -68,25 +111,36 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
         }
     };
 
-    const handleRejectAttendance = async (user: User) => {
+    const handleRejectAttendance = (user: User) => {
         if (!user.today_session) return;
 
-        const remarks = prompt('Please provide a reason for rejection:');
-        if (!remarks) {
-            toast.error('Rejection reason is required');
-            return;
-        }
+        setConfirmModal({
+            show: true,
+            title: 'Reject Attendance',
+            message: `Please provide a reason for rejecting ${user.name}'s attendance for today.`,
+            type: 'warning',
+            showInput: true,
+            inputLabel: 'Rejection Reason',
+            inputValue: '',
+            onConfirm: async () => {
+                const remarks = confirmModal.inputValue;
+                if (!remarks) {
+                    toast.error('Rejection reason is required');
+                    return;
+                }
 
-        setLoadingAction(`reject-${user.id}`);
-        try {
-            await sessionService.rejectAttendance(user.today_session.id, remarks);
-            toast.success(`Attendance rejected for ${user.name}`);
-            onRefresh?.();
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to reject attendance');
-        } finally {
-            setLoadingAction(null);
-        }
+                setLoadingAction(`reject-${user.id}`);
+                try {
+                    await sessionService.rejectAttendance(user.today_session!.id, remarks);
+                    toast.success(`Attendance rejected for ${user.name}`);
+                    onRefresh?.();
+                } catch (error: any) {
+                    toast.error(error.message || 'Failed to reject attendance');
+                } finally {
+                    setLoadingAction(null);
+                }
+            }
+        });
     };
 
     // Helper to format worked time
@@ -234,8 +288,8 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
 
                                 {/* Actions */}
                                 <div className="col-span-3 flex items-center gap-1 flex-wrap">
-                                    {/* Reopen/Unlock Button */}
-                                    {(isLocked || canReopen) ? (
+                                    {/* Reopen/Unlock/Lock Button */}
+                                    {isLocked || canReopen ? (
                                         <button
                                             onClick={() => handleUnlockUser(user)}
                                             disabled={loadingAction === `unlock-${user.id}`}
@@ -246,21 +300,20 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                                             {loadingAction === `unlock-${user.id}` ? '...' : (isLocked ? 'Unlock' : 'Reopen')}
                                         </button>
                                     ) : (
-                                        /* Force Unlock - Always available for field staff to ensure managers can resolve issues */
                                         isStaff && (
                                             <button
-                                                onClick={() => handleUnlockUser(user)}
-                                                disabled={loadingAction === `unlock-${user.id}`}
-                                                className="p-1.5 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded text-orange-600 dark:text-orange-400 group relative"
-                                                title="Force Reset/Unlock Session"
+                                                onClick={() => handleLockUser(user)}
+                                                disabled={loadingAction === `lock-${user.id}`}
+                                                className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                                                title="Lock Account (Manager Action)"
                                             >
-                                                <Unlock className="w-4 h-4" />
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                                    Force Unlock
-                                                </span>
+                                                <Lock className="w-3 h-3" />
+                                                {loadingAction === `lock-${user.id}` ? '...' : 'Lock'}
                                             </button>
                                         )
                                     )}
+
+
 
                                     {/* Approve/Reject Buttons - Show when attendance is pending */}
                                     {hasPendingAttendance && (
@@ -344,6 +397,78 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                         setSelectedStaff(null);
                     }}
                 />
+            )}
+
+            {/* Custom Confirmation Modal */}
+            {confirmModal.show && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex items-start gap-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmModal.type === 'danger'
+                                    ? 'bg-red-100 dark:bg-red-900/30'
+                                    : confirmModal.type === 'warning'
+                                        ? 'bg-orange-100 dark:bg-orange-900/30'
+                                        : 'bg-blue-100 dark:bg-blue-900/30'
+                                    }`}>
+                                    {confirmModal.type === 'danger' ? (
+                                        <Lock className={`w-6 h-6 text-red-600 dark:text-red-400`} />
+                                    ) : confirmModal.type === 'warning' ? (
+                                        <AlertCircle className={`w-6 h-6 text-orange-600 dark:text-orange-400`} />
+                                    ) : (
+                                        <Unlock className={`w-6 h-6 text-blue-600 dark:text-blue-400`} />
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                        {confirmModal.title}
+                                    </h3>
+                                    <p className="text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
+                                        {confirmModal.message}
+                                    </p>
+
+                                    {confirmModal.showInput && (
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                {confirmModal.inputLabel}
+                                            </label>
+                                            <textarea
+                                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                                                rows={3}
+                                                placeholder="Enter reason here..."
+                                                value={confirmModal.inputValue}
+                                                onChange={(e) => setConfirmModal({ ...confirmModal, inputValue: e.target.value })}
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+                                className="px-6 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    confirmModal.onConfirm();
+                                    setConfirmModal({ ...confirmModal, show: false });
+                                }}
+                                className={`px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all active:scale-95 ${confirmModal.type === 'danger'
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-red-200 dark:shadow-none'
+                                    : confirmModal.type === 'warning'
+                                        ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200 dark:shadow-none'
+                                        : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none'
+                                    }`}
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
