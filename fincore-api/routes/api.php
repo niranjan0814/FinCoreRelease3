@@ -158,6 +158,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{sessionId}/reject', [StaffSessionController::class, 'rejectAttendance']);
         Route::get('/user/{userId}', [StaffSessionController::class, 'getUserSessions']);
         Route::post('/user/{userId}/unlock', [StaffSessionController::class, 'unlockUserAccount']);
+        Route::post('/user/{userId}/lock', [StaffSessionController::class, 'lockUserAccount']);
         Route::get('/attendance-report', [StaffSessionController::class, 'getAttendanceReport']);
     });
 
@@ -247,6 +248,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/export', [CustomerController::class, 'export'])->middleware('permission:customers.export');
         });
 
+        // Collections
+        Route::get('/collections/due', [App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
+
         // Center Change Requests
         Route::prefix('center-requests')->group(function () {
             Route::get('/', [CenterChangeRequestController::class, 'index'])->middleware('permission:customers.approve_transfer');
@@ -265,6 +269,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::post('/{user}/change-password', [UserController::class, 'changePassword'])->middleware('permission:users.edit,staff.edit');
             Route::put('/{user}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.edit,staff.edit');
             Route::post('/{user}/unlock', [UserController::class, 'unlock'])->middleware('permission:users.unlock,staff.unlock');
+            Route::post('/{user}/lock', [UserController::class, 'lock'])->middleware('permission:users.unlock,staff.unlock');
             Route::get('/{user}/statistics', [UserController::class, 'getStatistics'])->middleware('permission:users.view,staff.view');
             Route::get('/{user}/activity-log', [UserController::class, 'getActivityLog'])->middleware('permission:users.view,staff.view');
             Route::post('/bulk/status', [UserController::class, 'bulkUpdateStatus'])->middleware('permission:users.edit,staff.edit');

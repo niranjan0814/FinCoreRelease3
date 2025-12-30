@@ -20,6 +20,7 @@ export interface User {
     email: string;
     role: string;
     branch: string;
+    branchId?: number | string | null;
     status: 'Active' | 'Inactive' | 'Blocked';
     // Session-related fields
     is_locked?: boolean;

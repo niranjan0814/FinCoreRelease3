@@ -311,6 +311,33 @@ class StaffSessionController extends BaseController
     }
 
     /**
+     * Lock a user's account and end active session (for managers)
+     */
+    public function lockUserAccount(Request $request, $userId)
+    {
+        if (!$request->user()->hasPermissionTo('users.unlock')) {
+            return $this->forbidden('Permission denied');
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return $this->notFound('User not found');
+        }
+
+        if ($user->id === $request->user()->id) {
+            return $this->error('You cannot lock your own account', 400);
+        }
+
+        // Use service to close session if open and lock user
+        $this->sessionService->emergencyLockUser($user);
+
+        return $this->success([
+            'user_id' => $user->id,
+            'is_locked' => $user->fresh()->is_locked,
+        ], 'User account locked and session closed successfully');
+    }
+
+    /**
      * Get all sessions for a specific user (for managers)
      */
     public function getUserSessions(Request $request, $userId)

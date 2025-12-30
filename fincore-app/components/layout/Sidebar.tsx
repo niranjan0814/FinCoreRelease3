@@ -44,7 +44,7 @@ interface MenuItem {
 }
 
 export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarProps) {
-    const [expandedMenus, setExpandedMenus] = React.useState<string[]>(['loans', 'collections', 'finance']);
+    const [expandedMenus, setExpandedMenus] = React.useState<string[]>(['loans', 'collections-section', 'finance']);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
     const [isMounted, setIsMounted] = React.useState(false);
 
@@ -404,56 +404,12 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Collections</p>
                         </div>
                     )}
-
-                    {isCollapsed ? (
-                        <button
-                            onClick={() => toggleMenu('collections')}
-                            className="w-full flex items-center justify-center px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all group relative"
-                            title="Collections"
-                        >
-                            <DollarSign className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                                Collections
-                            </div>
-                        </button>
-                    ) : (
-                        <>
-                            <button
-                                onClick={() => toggleMenu('collections')}
-                                className="w-full flex items-center justify-between px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <DollarSign className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
-                                    <span className="text-sm font-medium">Collections</span>
-                                </div>
-                                <ChevronDown
-                                    className={`w-4 h-4 transition-transform ${expandedMenus.includes('collections') ? 'rotate-180' : ''
-                                        }`}
-                                />
-                            </button>
-                            {expandedMenus.includes('collections') && (
-                                <div className="ml-8 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
-                                    {collectionMenuItems.map(item => {
-                                        if (item.permission && (!isMounted || !authService.hasPermission(item.permission))) return null;
-                                        const isActive = currentPage === item.id;
-                                        return (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => onNavigate(item.id)}
-                                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm ${isActive
-                                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
-                                                    }`}
-                                            >
-                                                {item.icon}
-                                                <span>{item.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </>
-                    )}
+                    {renderMenuItem({
+                        id: 'collections-section' as Page,
+                        label: 'Collections',
+                        icon: <DollarSign className="w-5 h-5" />,
+                        submenu: collectionMenuItems
+                    })}
                 </div>
 
                 {/* Reports */}

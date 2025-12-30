@@ -94,7 +94,7 @@ class AdminController extends Controller
     public function index()
     {
         $admins = User::role('admin')
-            ->with(['roles.permissions', 'permissions'])
+            ->with(['roles.permissions', 'permissions', 'staff.branch'])
             ->get();
             
         return response()->json([
@@ -110,7 +110,7 @@ class AdminController extends Controller
     public function show($id)
     {
         $admin = User::role('admin')
-            ->with(['roles.permissions', 'permissions'])
+            ->with(['roles.permissions', 'permissions', 'staff.branch'])
             ->find($id);
 
         if (!$admin) {

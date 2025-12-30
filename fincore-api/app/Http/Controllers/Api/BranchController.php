@@ -17,8 +17,22 @@ class BranchController extends Controller
     public function all()
     {
         try {
-            $branches = Branch::orderBy('branch_name')
-                ->get();
+            $user = auth()->user();
+            $query = Branch::orderBy('branch_name');
+
+            // If user is not an admin/manager, limit to their assigned branch
+            if (!$user->hasRole(['super_admin', 'admin', 'manager'])) {
+                // Assuming the user is linked to a Staff record which has a branch_id
+                if ($user->staff) {
+                     $query->where('id', $user->staff->branch_id);
+                } else {
+                    // Fallback: if no staff record, maybe return nothing or handle gracefully
+                    // For now, returning empty if not admin/manager and no staff record
+                     $query->where('id', -1);
+                }
+            }
+
+            $branches = $query->get();
 
             return response()->json([
                 'success' => true,

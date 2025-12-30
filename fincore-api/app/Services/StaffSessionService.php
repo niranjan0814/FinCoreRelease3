@@ -203,9 +203,6 @@ class StaffSessionService
         return $session->fresh();
     }
 
-    /**
-     * Manually unlock a user account
-     */
     public function unlockUserAccount(User $user): void
     {
         $user->update([
@@ -214,6 +211,33 @@ class StaffSessionService
         ]);
         
         Log::info("User {$user->id} account manually unlocked");
+    }
+
+    /**
+     * Emergency lock user account and close session
+     */
+    public function emergencyLockUser(User $user): void
+    {
+        // 1. Lock the account
+        $user->lockAccount();
+
+        // 2. Find and close any open session for today
+        $openSession = StaffSession::where('user_id', $user->id)
+            ->where('status', StaffSession::STATUS_OPEN)
+            ->first();
+
+        if ($openSession) {
+            $openSession->update([
+                'status' => StaffSession::STATUS_CLOSED,
+                'logout_at' => now(),
+                'logout_type' => StaffSession::LOGOUT_TYPE_AUTO_LOGOUT,
+                'remarks' => 'Session terminated and account locked by manager.',
+                'auto_logged_out' => true,
+            ]);
+            Log::info("Closed open session #{$openSession->id} during emergency lock for user {$user->id}");
+        }
+
+        Log::info("User {$user->id} account manually locked by manager");
     }
 
     /**
