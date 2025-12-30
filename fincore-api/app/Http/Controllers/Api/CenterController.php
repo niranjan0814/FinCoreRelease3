@@ -15,7 +15,7 @@ class CenterController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Center::with(['branch', 'staff']);
+            $query = Center::with(['branch', 'staff'])->withCount(['groups', 'customers']);
 
             // Filter by CSU_id
             if ($request->has('CSU_id')) {
@@ -85,6 +85,15 @@ class CenterController extends Controller
                 $latestCenter = Center::latest('id')->first();
                 $nextId = $latestCenter ? $latestCenter->id + 1 : 1;
                 $validated['CSU_id'] = 'CSU' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            }
+
+            // Forced status for Field Officers: Always inactive (pending)
+            $user = auth()->user();
+            if ($user && $user->hasRole('field_officer')) {
+                $validated['status'] = 'inactive';
+            } elseif (!isset($validated['status'])) {
+                // Default for others if not provided
+                $validated['status'] = 'active';
             }
 
             $center = Center::create($validated);
@@ -169,8 +178,21 @@ class CenterController extends Controller
                 'location' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
                 'group_count' => 'nullable|integer|min:0',
-                'status' => 'nullable|string|in:active,inactive',
+                'status' => 'nullable|string|in:active,inactive,rejected',
             ]);
+
+            // If the center was rejected and is being updated, set it back to inactive (pending)
+            if ($center->status === 'rejected') {
+                $validated['status'] = 'inactive';
+            }
+
+            // Security: Field Officers cannot manually set status to active
+            $user = auth()->user();
+            if ($user && $user->hasRole('field_officer')) {
+                if (isset($validated['status']) && $validated['status'] === 'active') {
+                    unset($validated['status']);
+                }
+            }
 
             $center->update($validated);
 
@@ -249,6 +271,26 @@ public function approve($id)
     ], 200);
 }
 
+    public function reject(Request $request, $id)
+    {
+        $center = Center::findOrFail($id);
+        
+        $validated = $request->validate([
+            'rejection_reason' => 'nullable|string|max:1000'
+        ]);
+
+        $center->update([
+            'status' => 'rejected',
+            'rejection_reason' => $validated['rejection_reason'] ?? null
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'status_code' => 2000,
+            'message' => 'Center request rejected successfully'
+        ], 200);
+    }
+
 
     /**
      * Remove the specified center.
@@ -256,12 +298,55 @@ public function approve($id)
     public function destroy($id)
     {
         try {
+            $user = auth()->user();
             $center = Center::findOrFail($id);
+
+            // 1. Cannot delete if already active
+            if ($center->status === 'active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Active centers cannot be deleted.'
+                ], 403);
+            }
+
+            // 2. Role-based deletion rules
+            if ($user->hasRole('field_officer')) {
+                // Field officers can ONLY delete pending (inactive) requests
+                // AND only if they don't have a meeting schedule (indicating they were never operational)
+                if ($center->status !== 'inactive') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Field officers can only delete pending center requests.'
+                    ], 403);
+                }
+
+                if (!empty($center->open_days) && count($center->open_days) > 0) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Cannot delete a center request that already has a meeting schedule configured.'
+                    ], 403);
+                }
+            } elseif (!$user->hasRole('super_admin')) {
+                // Non-field officers / Non-super admins cannot delete at all
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized to delete center requests.'
+                ], 403);
+            }
+
+            // 3. Cannot delete if there are associated groups or customers
+            if ($center->groups()->count() > 0 || $center->customers()->count() > 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Cannot delete center with associated groups or customers.'
+                ], 403);
+            }
+
             $center->delete();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Center deleted successfully'
+                'message' => 'Center request deleted successfully'
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([

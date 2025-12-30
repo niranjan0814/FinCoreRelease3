@@ -3,6 +3,8 @@ import { X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Role } from '../../types/staff.types';
 import { staffService } from '../../services/staff.service';
+import { branchService } from '../../services/branch.service';
+import { Branch } from '../../types/branch.types';
 
 interface StaffFormProps {
     onClose: () => void;
@@ -38,6 +40,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [branches, setBranches] = useState<Branch[]>([]);
 
     const isEditing = !!initialData;
 
@@ -80,9 +83,6 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
             } else if (parseInt(formData.age) < 18 || parseInt(formData.age) > 80) {
                 newErrors.age = 'Age must be between 18 and 80';
             }
-
-            //if (!formData.branch) newErrors.branch = 'Branch is required';
-            // Gender default is Male, so always valid
         }
 
         if (!isEditing && isAdminRole && !formData.password) {
@@ -92,6 +92,18 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
         setFieldErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
+
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const data = await branchService.getBranches();
+                setBranches(data);
+            } catch (error) {
+                console.error("Failed to fetch branches", error);
+            }
+        };
+        fetchBranches();
+    }, []);
 
     useEffect(() => {
         const loadStaffDetails = async () => {
@@ -181,8 +193,8 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                         joined_date: new Date().toISOString().split('T')[0]
                     },
                     profile_image: 'default_avatar.png',
-                    // Map branch string to ID if it's numeric, otherwise omit to avoid validation failure
-                    branch_id: !isNaN(parseInt(formData.branch)) ? parseInt(formData.branch) : undefined,
+                    // Map branch string to ID if it's numeric, otherwise pass null
+                    branch_id: formData.branch ? parseInt(formData.branch) : null,
                 };
             }
 
@@ -357,7 +369,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                 </div>
 
                                 <div>
-                                    <label className="block font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">Branch *</label>
+                                    <label className="block font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">Branch (Optional)</label>
                                     <select
                                         name="branch"
                                         value={formData.branch}
@@ -365,9 +377,11 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                         className={`w-full px-3 py-2 border ${fieldErrors.branch ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
                                     >
                                         <option value="">Select Branch</option>
-                                        <option value="Head Office">Head Office</option>
-                                        <option value="Kandy Branch">Kandy Branch</option>
-                                        <option value="Galle Branch">Galle Branch</option>
+                                        {branches.map((branch) => (
+                                            <option key={branch.id} value={branch.id}>
+                                                {branch.branch_name}
+                                            </option>
+                                        ))}
                                     </select>
                                     {fieldErrors.branch && <p className="text-red-500 text-xs mt-1">{fieldErrors.branch}</p>}
                                 </div>
@@ -439,5 +453,3 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
         </div>
     );
 }
-
-

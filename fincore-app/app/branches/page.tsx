@@ -11,6 +11,8 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { colors } from '../../themes/colors';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { authService } from '../../services/auth.service';
+import { useRouter } from 'next/navigation';
 
 export default function BranchManagementPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -20,11 +22,28 @@ export default function BranchManagementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [branchToDelete, setBranchToDelete] = useState<number | null>(null);
+    const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+    const router = useRouter();
 
-    // Initial data fetch
+    // Initial data fetch and security check
     useEffect(() => {
-        loadBranches();
-    }, []);
+        const checkAccess = () => {
+            const hasViewPermission = authService.hasPermission('branches.view');
+            const isSuperAdmin = authService.hasRole('super_admin');
+
+            if (!hasViewPermission && !isSuperAdmin) {
+                router.push('/');
+                return false;
+            }
+            return true;
+        };
+
+        if (typeof window !== 'undefined') {
+            const allowed = checkAccess();
+            setHasAccess(allowed);
+            if (allowed) loadBranches();
+        }
+    }, [router]);
 
     const loadBranches = async () => {
         try {
@@ -105,7 +124,9 @@ export default function BranchManagementPage() {
         totalLoans: 0 // Not supported by backend yet
     };
 
-    if (loading && branches.length === 0) {
+    if (hasAccess === false) return null;
+
+    if ((loading && branches.length === 0) || hasAccess === null) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

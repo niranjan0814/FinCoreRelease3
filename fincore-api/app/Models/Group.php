@@ -18,7 +18,7 @@ class Group extends Model
         'customer_ids' => 'array',
     ];
     
-    protected $with = ['customers'];
+    protected $with = ['customers.center', 'customers.branch'];
 
     public function center()
     {

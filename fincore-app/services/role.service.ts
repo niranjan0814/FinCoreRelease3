@@ -85,12 +85,34 @@ export const roleService = {
             })
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to create role');
+        if (!response.ok) {
+            const msg = data.errors
+                ? Object.values(data.errors).flat().join(', ')
+                : (data.message || 'Failed to create role');
+            throw new Error(msg);
+        }
         return data.data;
     },
 
     // Update Role
     updateRole: async (id: string, roleData: any): Promise<any> => {
+        // Convert permission matrix to a simple array of {module, action} pairs for backend
+        const permissionMatrix: Array<{ module: string, action: string }> = [];
+
+        if (roleData.permissionMatrix) {
+            // Already formatted
+            permissionMatrix.push(...roleData.permissionMatrix);
+        } else if (Array.isArray(roleData.permissions) && roleData.permissions.length > 0 && typeof roleData.permissions[0] === 'object' && 'module' in roleData.permissions[0]) {
+            // It's a matrix format from the frontend modal
+            roleData.permissions.forEach((row: any) => {
+                Object.entries(row.permissions || {}).forEach(([action, value]) => {
+                    if (value) {
+                        permissionMatrix.push({ module: row.module, action });
+                    }
+                });
+            });
+        }
+
         const response = await fetch(`${API_BASE_URL}/roles/${id}`, {
             method: 'PUT',
             headers: getHeaders(),
@@ -102,11 +124,16 @@ export const roleService = {
                 is_default: roleData.is_default,
                 is_editable: roleData.is_editable,
                 restrictions: roleData.restrictions,
-                permissions: roleData.permissionIds || []
+                permission_matrix: permissionMatrix // Send matrix for dynamic permission creation
             })
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to update role');
+        if (!response.ok) {
+            const msg = data.errors
+                ? Object.values(data.errors).flat().join(', ')
+                : (data.message || 'Failed to update role');
+            throw new Error(msg);
+        }
         return data.data;
     },
 

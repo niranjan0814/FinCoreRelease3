@@ -70,6 +70,19 @@ export function ViewGroups() {
         }
     };
 
+    const handleDeleteGroup = async (groupId: number) => {
+        if (!window.confirm('Are you sure you want to delete this group?')) return;
+
+        try {
+            await groupService.deleteGroup(groupId);
+            setGroups(groups.filter(g => g.id !== groupId));
+            toast.success('Group deleted successfully!');
+        } catch (err: any) {
+            console.error('Failed to delete group:', err);
+            toast.error(err.message || 'Failed to delete group');
+        }
+    };
+
     const handleEdit = (group: Group) => {
         setSelectedGroup(group);
         setIsCreateModalOpen(true);
@@ -94,7 +107,7 @@ export function ViewGroups() {
     // Calculate statistics
     const totalGroups = groups.length;
     const activeGroups = groups.filter(g => g.status === 'active').length;
-    const totalMembers = groups.reduce((sum, g) => sum + (g.member_count || g.members?.length || 0), 0);
+    const totalMembers = groups.reduce((sum, g) => sum + (g.member_count || g.customers?.length || g.members?.length || 0), 0);
     const avgMembersPerGroup = totalGroups > 0 ? Math.round(totalMembers / totalGroups) : 0;
 
     if (isLoading) {
@@ -204,6 +217,7 @@ export function ViewGroups() {
                 totalGroups={totalGroups}
                 onEdit={handleEdit}
                 onViewMembers={handleViewMembers}
+                onDelete={handleDeleteGroup}
             />
 
             {filteredGroups.length === 0 && (

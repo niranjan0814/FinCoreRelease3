@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\StaffSession;
 
 class UserResource extends JsonResource
 {
@@ -14,6 +15,12 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Get today's session for this user
+        $todaySession = StaffSession::where('user_id', $this->id)
+            ->where('date', now()->toDateString())
+            ->latest('login_at')
+            ->first();
+
         return [
             'id' => $this->id,
             'user_name' => $this->user_name,
@@ -36,6 +43,22 @@ class UserResource extends JsonResource
             // Computed attributes
             'initials' => $this->initials,
             'full_name' => $this->full_name,
+            
+            // Today's session data for manager actions
+            'today_session' => $todaySession ? [
+                'id' => $todaySession->id,
+                'date' => $todaySession->date->format('Y-m-d'),
+                'login_at' => $todaySession->login_at?->format('H:i:s'),
+                'logout_at' => $todaySession->logout_at?->format('H:i:s'),
+                'logout_type' => $todaySession->logout_type,
+                'status' => $todaySession->status,
+                'worked_minutes' => $todaySession->worked_minutes ?? 0,
+                'attendance_status' => $todaySession->attendance_status,
+                'auto_logged_out' => $todaySession->auto_logged_out,
+                'remarks' => $todaySession->remarks,
+                'approved_by' => $todaySession->approved_by,
+                'approved_at' => $todaySession->approved_at,
+            ] : null,
             
             // Staff details relationship
             'staff_detail' => $this->whenLoaded('staffDetail', function () {

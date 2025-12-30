@@ -77,7 +77,14 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                 {
                     id: 'meeting-scheduling',
                     label: 'Meeting Schedule',
-                    icon: <ClipboardList className="w-4 h-4" />
+                    icon: <ClipboardList className="w-4 h-4" />,
+                    roles: ['super_admin', 'admin', 'manager', 'staff']
+                },
+                {
+                    id: 'center-requests',
+                    label: 'Transfer Requests',
+                    icon: <ArrowLeftRight className="w-4 h-4" />,
+                    roles: ['super_admin', 'admin', 'manager']
                 }
             ],
             permission: 'centers.view'

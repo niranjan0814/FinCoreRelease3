@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, User, MapPin, Briefcase, Phone, MessageSquare, Mail, Building, Landmark, ChevronDown, CheckCircle2, ShieldCheck, Heart, Calendar } from 'lucide-react';
 import { CustomerFormData } from '../../types/customer.types';
 import { customerService } from '../../services/customer.service';
+import { authService } from '../../services/auth.service';
 import { toast } from 'react-toastify';
 
 interface CustomerFormProps {
@@ -37,6 +38,7 @@ const FormInput = ({ label, name, type = 'text', placeholder, required, error, i
                 value={value || ''}
                 onChange={onChange}
                 readOnly={readOnly}
+                min={type === 'number' ? '0' : undefined}
                 placeholder={placeholder}
                 className={`w-full ${Icon ? 'pl-9' : 'pl-4'} pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/40 border ${error ? 'border-red-500 focus:ring-red-500/10' : 'border-gray-200 dark:border-gray-700/50 focus:ring-blue-500/10'} rounded-xl focus:outline-none focus:ring-4 focus:border-blue-500 transition-all text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 ${readOnly ? 'cursor-not-allowed opacity-70' : ''}`}
             />
@@ -147,13 +149,47 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
     const loadConstants = async () => {
         try {
             const data = await customerService.getConstants();
+            const user = authService.getCurrentUser();
+            const isFieldOfficer = authService.hasRole('field_officer');
+
             if (data) {
-                setConstants(data);
+                let finalBranches = data.branches || [];
+                let finalCenters = data.centers || [];
+
+                // 🎯 If Field Officer, restrict to their assigned centers/branches
+                if (isFieldOfficer && user) {
+                    // Filter centers where this FO is assigned
+                    finalCenters = data.centers.filter((c: any) => c.staff_id === user.user_name);
+
+                    // Filter branches to only those that have filtered centers
+                    const assignedBranchIds = [...new Set(finalCenters.map((c: any) => c.branch_id))];
+                    finalBranches = data.branches.filter((b: any) => assignedBranchIds.includes(b.id));
+
+                    // Auto-select if there's only one branch
+                    if (finalBranches.length === 1 && !formData.branch_id && !initialData) {
+                        setFormData(prev => ({ ...prev, branch_id: finalBranches[0].id }));
+                        setFilteredCenters(finalCenters.filter((c: any) => c.branch_id === finalBranches[0].id && c.status === 'active'));
+                    }
+                }
+
+                setConstants({
+                    ...data,
+                    branches: finalBranches,
+                    centers: data.centers // Keep all in master constants but filtered in UI state
+                });
+
                 if (initialData?.province && data.province_districts_map) {
                     setFilteredDistricts(data.province_districts_map[initialData.province] || []);
                 }
+
+                // Initial filtering for centers dropdown
                 if (initialData?.branch_id && data.centers) {
-                    setFilteredCenters(data.centers.filter((c: any) => c.branch_id === initialData.branch_id));
+                    let centersToFilter = isFieldOfficer
+                        ? finalCenters
+                        : data.centers;
+                    setFilteredCenters(centersToFilter.filter((c: any) => c.branch_id === initialData.branch_id && c.status === 'active'));
+                } else if (isFieldOfficer && finalBranches.length === 1) {
+                    setFilteredCenters(finalCenters.filter((c: any) => c.branch_id === finalBranches[0].id && c.status === 'active'));
                 }
             }
         } catch (error) {
@@ -185,13 +221,46 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
         // Dependent logic for Branch -> Center
         if (name === 'branch_id') {
             const branchId = parseInt(value);
+            const user = authService.getCurrentUser();
+            const isFieldOfficer = authService.hasRole('field_officer');
+
             if (constants?.centers) {
-                setFilteredCenters(constants.centers.filter((c: any) => c.branch_id === branchId));
+                let centersToFilter = constants.centers;
+                if (isFieldOfficer && user) {
+                    centersToFilter = constants.centers.filter((c: any) => c.staff_id === user.user_name);
+                }
+                setFilteredCenters(centersToFilter.filter((c: any) => c.branch_id === branchId && c.status === 'active'));
             } else {
                 setFilteredCenters([]);
             }
             setFormData(prev => ({ ...prev, branch_id: branchId, center_id: undefined }));
         }
+    };
+
+    const extractGenderFromNIC = (nic: string) => {
+        const cleanNIC = nic.toUpperCase().trim();
+        let dayValue = 0;
+
+        if (/^(\d{9})[VX]$/.test(cleanNIC)) {
+            dayValue = parseInt(cleanNIC.substring(2, 5));
+        } else if (/^(\d{12})$/.test(cleanNIC)) {
+            dayValue = parseInt(cleanNIC.substring(4, 7));
+        } else {
+            return null;
+        }
+
+        return dayValue > 500 ? 'Female' : 'Male';
+    };
+
+    const calculateAge = (dob: string) => {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
     };
 
     const validate = () => {
@@ -207,21 +276,49 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
         if (!formData.initials?.trim()) errors.initials = 'Initials are required';
         if (!formData.first_name?.trim()) errors.first_name = 'First name is required';
         if (!formData.last_name?.trim()) errors.last_name = 'Last name is required';
+
         if (!formData.customer_code?.trim()) {
             errors.customer_code = 'NIC is required';
-        } else if (!/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/.test(formData.customer_code)) {
-            errors.customer_code = 'Invalid NIC format';
+        } else {
+            const nic = formData.customer_code.trim();
+            if (!/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/.test(nic)) {
+                errors.customer_code = 'Invalid NIC format';
+            } else {
+                const extractedGender = extractGenderFromNIC(nic);
+                if (extractedGender && formData.gender && extractedGender !== formData.gender) {
+                    errors.gender = `Matches ${extractedGender} NIC`;
+                }
+            }
         }
-        if (!formData.date_of_birth) errors.date_of_birth = 'Date of birth is required';
+
+        if (!formData.date_of_birth) {
+            errors.date_of_birth = 'Required';
+        } else {
+            const age = calculateAge(formData.date_of_birth);
+            if (age < 18) errors.date_of_birth = 'Min 18 years';
+            if (age > 65) errors.date_of_birth = 'Max 65 years';
+        }
+
         if (!formData.gender) errors.gender = 'Gender is required';
         if (!formData.religion) errors.religion = 'Religion is required';
         if (!formData.civil_status) errors.civil_status = 'Civil status is required';
 
         // Required Contact
         if (!formData.mobile_no_1?.trim()) {
-            errors.mobile_no_1 = 'Mobile number is required';
+            errors.mobile_no_1 = 'Required';
         } else if (!/^\d{10}$/.test(formData.mobile_no_1)) {
-            errors.mobile_no_1 = 'Must be 10 digits';
+            errors.mobile_no_1 = '10 digits';
+        }
+
+        // Optional format validations
+        if (formData.mobile_no_2?.trim() && !/^\d{10}$/.test(formData.mobile_no_2)) {
+            errors.mobile_no_2 = '10 digits';
+        }
+        if (formData.telephone?.trim() && !/^\d{10}$/.test(formData.telephone)) {
+            errors.telephone = '10 digits';
+        }
+        if (formData.business_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.business_email)) {
+            errors.business_email = 'Invalid email';
         }
 
         // Required Address
@@ -230,6 +327,17 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
         if (!formData.province) errors.province = 'Province is required';
         if (!formData.district) errors.district = 'District is required';
         if (!formData.gs_division?.trim()) errors.gs_division = 'GS Division is required';
+
+        // Numeric Ranges
+        if (formData.family_members_count !== undefined && (formData.family_members_count < 1 || formData.family_members_count > 20)) {
+            errors.family_members_count = '1-20 members';
+        }
+        if (formData.monthly_income !== undefined && formData.monthly_income < 0) {
+            errors.monthly_income = 'Invalid income';
+        }
+        if (formData.no_of_employees !== undefined && formData.no_of_employees < 0) {
+            errors.no_of_employees = 'Cannot be negative';
+        }
 
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
@@ -245,6 +353,7 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
         setLoading(true);
         try {
             await onSubmit(formData as CustomerFormData);
+            toast.success(initialData ? 'Customer profile updated successfully!' : 'Customer profile finalized successfully!');
             onClose();
         } catch (error: any) {
             toast.error(error.message || 'Failed to save customer');
@@ -321,8 +430,8 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                             <FormSelect label="Civil Status" name="civil_status" options={['Single', 'Married', 'Divorced', 'Widowed']} required error={fieldErrors.civil_status} icon={Heart} value={formData.civil_status} onChange={handleChange} />
                             <FormSelect label="Religion" name="religion" options={constants?.religions || ['Buddhism', 'Hinduism', 'Islam', 'Christianity', 'Roman Catholic', 'Other']} required error={fieldErrors.religion} value={formData.religion} onChange={handleChange} />
                             <FormInput label="Spouse Name" name="spouse_name" placeholder="If applicable" colSpan={2} value={formData.spouse_name} onChange={handleChange} />
-                            <FormInput label="Family Members" name="family_members_count" type="number" placeholder="Count" value={formData.family_members_count} onChange={handleChange} />
-                            <FormInput label="Monthly Income (LKR)" name="monthly_income" type="number" placeholder="0.00" icon={Landmark} value={formData.monthly_income} onChange={handleChange} />
+                            <FormInput label="Family Members" name="family_members_count" type="number" placeholder="Count" error={fieldErrors.family_members_count} value={formData.family_members_count} onChange={handleChange} />
+                            <FormInput label="Monthly Income (LKR)" name="monthly_income" type="number" placeholder="0.00" icon={Landmark} error={fieldErrors.monthly_income} value={formData.monthly_income} onChange={handleChange} />
                         </div>
                     </div>
 
@@ -331,8 +440,8 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                         <SectionHeader icon={MessageSquare} title="Contact & Address" />
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <FormInput label="Primary Mobile" name="mobile_no_1" placeholder="077XXXXXXX" icon={Phone} required error={fieldErrors.mobile_no_1} value={formData.mobile_no_1} onChange={handleChange} />
-                            <FormInput label="Secondary Mobile" name="mobile_no_2" placeholder="Optional" icon={Phone} value={formData.mobile_no_2} onChange={handleChange} />
-                            <FormInput label="Fixed Line" name="telephone" placeholder="Optional" icon={Phone} value={formData.telephone} onChange={handleChange} />
+                            <FormInput label="Secondary Mobile" name="mobile_no_2" placeholder="Optional" icon={Phone} error={fieldErrors.mobile_no_2} value={formData.mobile_no_2} onChange={handleChange} />
+                            <FormInput label="Fixed Line" name="telephone" placeholder="Optional" icon={Phone} error={fieldErrors.telephone} value={formData.telephone} onChange={handleChange} />
                             <div className="md:col-span-3">
                                 <FormInput label="Address Line 1" name="address_line_1" placeholder="House No, Street Name" required error={fieldErrors.address_line_1} value={formData.address_line_1} onChange={handleChange} />
                             </div>
@@ -353,12 +462,12 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                             <FormInput label="Business Name" name="business_name" placeholder="If self-employed or company" value={formData.business_name} onChange={handleChange} />
                             <FormSelect label="Ownership Type" name="ownership_type" options={constants?.ownership_types || []} value={formData.ownership_type} onChange={handleChange} />
                             <FormInput label="Register Number" name="register_number" placeholder="BR Number" value={formData.register_number} onChange={handleChange} />
-                            <FormInput label="Business Email" name="business_email" type="email" placeholder="email@business.com" icon={Mail} value={formData.business_email} onChange={handleChange} />
+                            <FormInput label="Business Email" name="business_email" type="email" placeholder="email@business.com" icon={Mail} error={fieldErrors.business_email} value={formData.business_email} onChange={handleChange} />
                             <FormInput label="Business Duration" name="business_duration" placeholder="e.g. 5 Years" value={formData.business_duration} onChange={handleChange} />
                             <FormInput label="Business Place" name="business_place" placeholder="City" value={formData.business_place} onChange={handleChange} />
                             <FormInput label="Sector" name="sector" placeholder="e.g. Agriculture" value={formData.sector} onChange={handleChange} />
                             <FormInput label="Sub Sector" name="sub_sector" placeholder="e.g. Paddy" value={formData.sub_sector} onChange={handleChange} />
-                            <FormInput label="No. of Employees" name="no_of_employees" type="number" value={formData.no_of_employees} onChange={handleChange} />
+                            <FormInput label="No. of Employees" name="no_of_employees" type="number" error={fieldErrors.no_of_employees} value={formData.no_of_employees} onChange={handleChange} />
                         </div>
                     </div>
 

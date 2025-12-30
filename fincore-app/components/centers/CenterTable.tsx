@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Calendar, User, Users, AlertTriangle } from 'lucide-react';
+import { Calendar, User, Users, AlertTriangle, Trash2 } from 'lucide-react';
 import { Center, TemporaryAssignment } from '../../types/center.types';
 import { colors } from '../../themes/colors';
 import { usePagination } from '../../hooks/usePagination';
@@ -13,9 +13,14 @@ interface CenterTableProps {
     getTemporaryAssignment: (centerId: string) => TemporaryAssignment | undefined;
     onEdit: (centerId: string) => void;
     onViewSchedule: (centerId: string) => void;
+    onApprove?: (centerId: string) => void;
+    onReject?: (centerId: string) => void;
+    onViewDetails: (center: Center) => void;
+    onDelete?: (centerId: string) => void;
+    isFieldOfficer?: boolean;
 }
 
-export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onEdit, onViewSchedule }: CenterTableProps) {
+export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onEdit, onViewSchedule, onApprove, onReject, onViewDetails, onDelete, isFieldOfficer }: CenterTableProps) {
     const {
         currentPage,
         itemsPerPage,
@@ -32,12 +37,12 @@ export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onE
             <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
                 <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-600 uppercase">
                     <div className="col-span-2">Center</div>
-                    <div className="col-span-2">Branch</div>
+                    <div className="col-span-1">Branch</div>
                     <div className="col-span-2">Meeting Schedule</div>
                     <div className="col-span-2 text-center">Assigned User</div>
                     <div className="col-span-1 text-center">Location</div>
                     <div className="col-span-1 text-center">Status</div>
-                    <div className="col-span-2 text-right">Actions</div>
+                    <div className="col-span-3 text-right">Actions</div>
                 </div>
             </div>
 
@@ -58,30 +63,37 @@ export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onE
                                             <Users className="w-5 h-5" style={{ color: colors.primary[600] }} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 truncate">{center.center_name}</p>
+                                            <button
+                                                onClick={() => onViewDetails(center)}
+                                                className="text-sm font-bold text-gray-900 truncate hover:text-blue-600 transition-colors block text-left w-full"
+                                            >
+                                                {center.center_name}
+                                            </button>
                                             <p className="text-xs text-gray-500">{center.CSU_id}</p>
                                         </div>
                                     </div>
 
                                     {/* Branch */}
-                                    <div className="col-span-2">
+                                    <div className="col-span-1">
                                         <p className="text-sm text-gray-900">{center.branch?.branch_name || center.branch_id}</p>
                                     </div>
 
                                     {/* Meeting Schedule */}
                                     <div className="col-span-2">
                                         <div className="space-y-1">
-                                            {center.open_days?.map((s, i) => (
+                                            {center.open_days?.slice(0, 3).map((s, i) => (
                                                 <div key={i} className="flex flex-col text-xs">
                                                     <div className="flex gap-2">
                                                         <span className="font-medium text-gray-700">{s.day}</span>
                                                         <span className="text-gray-500">{s.time}</span>
                                                     </div>
-                                                    {s.date && (
-                                                        <span className="text-[10px] text-gray-400 font-mono">{s.date}</span>
-                                                    )}
                                                 </div>
                                             ))}
+                                            {(center.open_days?.length || 0) > 3 && (
+                                                <span className="text-[10px] text-gray-400 font-medium italic mt-1 block">
+                                                    +{(center.open_days?.length || 0) - 3} more
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -115,30 +127,54 @@ export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onE
                                     <div className="col-span-1">
                                         <div className="flex flex-col items-center gap-1">
                                             <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize ${center.status === 'active'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
+                                                ? 'bg-green-100 text-green-800 border border-green-200'
+                                                : center.status === 'rejected'
+                                                    ? 'bg-red-100 text-red-800 border border-red-200'
+                                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
                                                 }`}>
-                                                {center.status}
+                                                {center.status === 'inactive' ? 'Pending' : center.status}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="col-span-2 flex justify-end gap-2">
-                                        {/* <button
-                                        <button
-                                            onClick={() => onViewSchedule(center.id)}
-                                            className="p-1 px-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                        >
-                                            Schedule
-                                        </button> */}
-                                        
-                                        <button
-                                            onClick={() => onEdit(center.id)}
-                                            className="p-1 px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                                        >
-                                            Edit
-                                        </button>
+                                    <div className="col-span-3 flex justify-end gap-2 text-right">
+                                        {center.status === 'inactive' && onApprove && (
+                                            <button
+                                                onClick={() => onApprove(center.id)}
+                                                className="p-1 px-2 text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors"
+                                            >
+                                                Approve
+                                            </button>
+                                        )}
+
+                                        {center.status === 'inactive' && onReject && (
+                                            <button
+                                                onClick={() => onReject(center.id)}
+                                                className="p-1 px-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            >
+                                                Reject
+                                            </button>
+                                        )}
+
+                                        {(center.status !== 'rejected' || isFieldOfficer) && (
+                                            <button
+                                                onClick={() => onEdit(center.id)}
+                                                className="p-1 px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+
+                                        {onDelete && center.status === 'inactive' && isFieldOfficer && (center.groups_count || 0) === 0 && (center.customers_count || 0) === 0 && (!center.open_days || center.open_days.length === 0) && (
+                                            <button
+                                                onClick={() => onDelete(center.id)}
+                                                className="p-1 px-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors group relative"
+                                                title="Delete Center"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

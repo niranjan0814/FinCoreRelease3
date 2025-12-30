@@ -67,6 +67,25 @@ class User extends Authenticatable
         return $this->hasMany(PersonalAccessToken::class, 'tokenable_id');
     }
 
+    /**
+     * Get all staff sessions for this user
+     */
+    public function staffSessions()
+    {
+        return $this->hasMany(StaffSession::class, 'user_id');
+    }
+
+    /**
+     * Get the current open session for this user
+     */
+    public function getCurrentSession()
+    {
+        return $this->staffSessions()
+                    ->where('status', StaffSession::STATUS_OPEN)
+                    ->latest('login_at')
+                    ->first();
+    }
+
     // Attributes
     public function getFullNameAttribute()
     {
@@ -97,7 +116,10 @@ class User extends Authenticatable
 
     public function getIsLockedAttribute()
     {
-        return $this->locked_until && $this->locked_until->isFuture();
+        // A user is locked if:
+        // 1. They have a time-based lock that hasn't expired
+        // 2. OR they have been deactivated (e.g. via midnight timeout or manual deactivation)
+        return ($this->locked_until && $this->locked_until->isFuture()) || !$this->is_active;
     }
 
     public function getHasTwoFactorAttribute()
@@ -301,6 +323,7 @@ class User extends Authenticatable
         $this->update([
             'failed_login_attempts' => 0,
             'locked_until' => null,
+            'is_active' => true,
         ]);
     }
 

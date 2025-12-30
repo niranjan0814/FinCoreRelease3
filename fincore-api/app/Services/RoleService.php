@@ -121,7 +121,23 @@ class RoleService
                 'restrictions' => $data['restrictions'] ?? $role->restrictions,
             ]);
 
-            if (isset($data['permissions'])) {
+            // Handle permission_matrix - dynamically create missing permissions
+            if (isset($data['permission_matrix']) && is_array($data['permission_matrix'])) {
+                $permissionIds = $this->resolvePermissionMatrix($data['permission_matrix']);
+                
+                if (!empty($permissionIds)) {
+                    // Skip validation for super_admin
+                    if (!auth()->user()->isSuperAdmin()) {
+                        $this->validatePermissionSubset($permissionIds);
+                        $this->validateAdminPermissions($permissionIds);
+                    }
+                    $role->syncPermissions($permissionIds);
+                } else {
+                    // Clear all permissions if matrix is empty
+                    $role->syncPermissions([]);
+                }
+            } elseif (isset($data['permissions'])) {
+                // Fallback to old behavior with permission IDs
                 $this->validatePermissionSubset($data['permissions']);
                 $this->validateAdminPermissions($data['permissions']);
                 $role->syncPermissions($data['permissions']);
@@ -129,8 +145,46 @@ class RoleService
 
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-            return $role->refresh();
+            return $role->refresh()->load('permissions');
         });
+    }
+
+    /**
+     * Resolve permission matrix to permission IDs, creating missing permissions as needed
+     */
+    protected function resolvePermissionMatrix(array $matrix): array
+    {
+        $permissionIds = [];
+
+        foreach ($matrix as $item) {
+            if (!isset($item['module']) || !isset($item['action'])) {
+                continue;
+            }
+
+            $module = $item['module'];
+            $action = $item['action'];
+            $permissionName = $module . '.' . $action;
+
+            // Find or create the permission
+            $permission = Permission::where('name', $permissionName)->first();
+
+            if (!$permission) {
+                // Create the permission dynamically
+                $permission = Permission::create([
+                    'name' => $permissionName,
+                    'display_name' => ucfirst($module) . ' ' . ucwords(str_replace('_', ' ', $action)),
+                    'module' => $module,
+                    'guard_name' => 'web',
+                    'is_core' => false, // Dynamically created permissions are not core
+                ]);
+
+                \Log::info("Dynamically created permission: {$permissionName}");
+            }
+
+            $permissionIds[] = $permission->id;
+        }
+
+        return array_unique($permissionIds);
     }
 
     /**

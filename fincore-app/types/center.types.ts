@@ -17,8 +17,11 @@ export interface Center {
     group_count?: number;
     totalMembers?: number;
     totalLoans?: number;
+    groups_count?: number; // From Laravel withCount
+    customers_count?: number; // From Laravel withCount
     created_at?: string; // was createdDate
-    status: 'active' | 'inactive'; // Lowercase in backend validation
+    status: 'active' | 'inactive' | 'rejected'; // status in backend
+    rejection_reason?: string;
     open_days: ScheduleItem[]; // Array of schedule objects
     branch?: {
         id: number | string;
@@ -46,7 +49,7 @@ export interface CenterFormData {
     staff_id?: string | null;
     address: string;
     location: string;
-    status: 'active' | 'inactive';
+    status: 'active' | 'inactive' | 'rejected';
     open_days: ScheduleItem[];
     // Keeping these as they might be handled by frontend only or passed for other reasons
     // But for the strict API call, we need to be careful.

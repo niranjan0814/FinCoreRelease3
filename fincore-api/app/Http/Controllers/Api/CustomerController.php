@@ -30,7 +30,7 @@ class CustomerController extends Controller
             
             // Customer Personal Details (required)
             'code_type' => 'required|string|in:' . Customer::CODE_TYPE, // Must be 'NIC'
-            'customer_code' => ['required', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/', 'unique:customers,customer_code'], // This is the NIC
+            'customer_code' => ['required', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/'], // NIC validation without unique (we'll check manually)
             'gender' => 'required|in:Male,Female,Other',
             'title' => 'required|string',
             'full_name' => 'required|string',
@@ -86,30 +86,78 @@ class CustomerController extends Controller
 
         $validated = $validator->validated();
 
+        // ===== CUSTOM NIC DUPLICATE VALIDATION =====
+        // Check if customer with this NIC already exists in any center
+        $existingCustomer = Customer::with(['center', 'branch'])
+            ->where('customer_code', strtoupper($validated['customer_code']))
+            ->first();
+
+        if ($existingCustomer) {
+            $centerName = $existingCustomer->center?->center_name ?? 'Unknown Center';
+            $branchName = $existingCustomer->branch?->branch_name ?? 'Unknown Branch';
+            $customerName = $existingCustomer->full_name;
+            $customerStatus = ucfirst($existingCustomer->status ?? 'active');
+
+            return response()->json([
+                'statusCode' => 4090,
+                'message' => 'Customer with this NIC already exists',
+                'errors' => [
+                    'customer_code' => [
+                        "A customer with NIC '{$validated['customer_code']}' already exists.",
+                        "Customer Name: {$customerName}",
+                        "Center: {$centerName}",
+                        "Branch: {$branchName}",
+                        "Status: {$customerStatus}",
+                        "A customer cannot be registered in multiple centers at the same time."
+                    ]
+                ],
+                'existing_customer' => [
+                    'id' => $existingCustomer->id,
+                    'full_name' => $customerName,
+                    'customer_code' => $existingCustomer->customer_code,
+                    'center_id' => $existingCustomer->center_id,
+                    'center_name' => $centerName,
+                    'branch_id' => $existingCustomer->branch_id,
+                    'branch_name' => $branchName,
+                    'status' => $existingCustomer->status,
+                ]
+            ], 409); // 409 Conflict
+        }
+        // ===== END NIC VALIDATION =====
+
         // Extract gender from Sri Lankan NIC
         $nic = $validated['customer_code'];
         $genderFromNIC = $this->extractGenderFromNIC($nic);
         
         if (!$genderFromNIC) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid Sri Lankan NIC format'
+                'statusCode' => 4220,
+                'message' => 'Invalid Sri Lankan NIC format',
+                'errors' => [
+                    'customer_code' => ['The NIC format is invalid. Please enter a valid Sri Lankan NIC.']
+                ]
             ], 422);
         }
 
         // Validate that provided gender matches NIC
         if ($genderFromNIC !== $validated['gender']) {
             return response()->json([
-                'status' => 'error',
-                'message' => "Gender mismatch. NIC indicates gender is {$genderFromNIC}, but you provided {$validated['gender']}"
+                'statusCode' => 4221,
+                'message' => 'Gender mismatch with NIC',
+                'errors' => [
+                    'gender' => ["Gender mismatch. NIC indicates gender is {$genderFromNIC}, but you provided {$validated['gender']}"]
+                ]
             ], 422);
         }
 
         // Only females can get loans
         if ($genderFromNIC !== 'Female') {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Only female customers are eligible for loans in this program'
+                'statusCode' => 4030,
+                'message' => 'Only female customers are eligible',
+                'errors' => [
+                    'gender' => ['Only female customers are eligible for loans in this program']
+                ]
             ], 403);
         }
 
@@ -121,30 +169,39 @@ class CustomerController extends Controller
         // Validate age range for loan eligibility
         if ($age < Customer::MIN_AGE) {
             return response()->json([
-                'status' => 'error',
-                'message' => "Customer must be at least " . Customer::MIN_AGE . " years old to be eligible for loans. Current age: {$age} years"
+                'statusCode' => 4222,
+                'message' => 'Customer is too young',
+                'errors' => [
+                    'date_of_birth' => ["Customer must be at least " . Customer::MIN_AGE . " years old to be eligible for loans. Current age: {$age} years"]
+                ]
             ], 422);
         }
 
         if ($age > Customer::MAX_AGE) {
             return response()->json([
-                'status' => 'error',
-                'message' => "Customer must be " . Customer::MAX_AGE . " years old or younger to be eligible for loans. Current age: {$age} years"
+                'statusCode' => 4223,
+                'message' => 'Customer exceeds maximum age',
+                'errors' => [
+                    'date_of_birth' => ["Customer must be " . Customer::MAX_AGE . " years old or younger to be eligible for loans. Current age: {$age} years"]
+                ]
             ], 422);
         }
 
         try {
+            // Store NIC in uppercase for consistency
+            $validated['customer_code'] = strtoupper($validated['customer_code']);
+            
             $customer = Customer::create($validated);
 
             return response()->json([
                 'statusCode' => 2010,
                 'message' => 'Customer created successfully',
-                'data' => $customer
+                'data' => $customer->load(['branch', 'center', 'group'])
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'error',
+                'statusCode' => 5000,
                 'message' => 'Failed to create customer: ' . $e->getMessage()
             ], 500);
         }
@@ -244,7 +301,7 @@ class CustomerController extends Controller
             'base_product' => 'nullable|string',
             'pcsu_csu_code' => 'nullable|string',
             'code_type' => 'nullable|string|in:' . Customer::CODE_TYPE, // Must be 'NIC' if provided
-            'customer_code' => ['nullable', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/', 'unique:customers,customer_code,' . $id],
+            'customer_code' => ['nullable', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/'], // NIC validation without unique (we'll check manually)
             'gender' => 'nullable|in:Male,Female,Other',
             'title' => 'nullable|string',
             'full_name' => 'nullable|string',
@@ -297,18 +354,65 @@ class CustomerController extends Controller
 
         $validated = $validator->validated();
 
+        // ===== CUSTOM NIC DUPLICATE VALIDATION (for updates) =====
+        if (isset($validated['customer_code'])) {
+            $nicToCheck = strtoupper($validated['customer_code']);
+            
+            // Check if another customer (not this one) has the same NIC
+            $existingCustomer = Customer::with(['center', 'branch'])
+                ->where('customer_code', $nicToCheck)
+                ->where('id', '!=', $id) // Exclude current customer
+                ->first();
+
+            if ($existingCustomer) {
+                $centerName = $existingCustomer->center?->center_name ?? 'Unknown Center';
+                $branchName = $existingCustomer->branch?->branch_name ?? 'Unknown Branch';
+                $customerName = $existingCustomer->full_name;
+                $customerStatus = ucfirst($existingCustomer->status ?? 'active');
+
+                return response()->json([
+                    'statusCode' => 4090,
+                    'message' => 'Customer with this NIC already exists',
+                    'errors' => [
+                        'customer_code' => [
+                            "A customer with NIC '{$nicToCheck}' already exists.",
+                            "Customer Name: {$customerName}",
+                            "Center: {$centerName}",
+                            "Branch: {$branchName}",
+                            "Status: {$customerStatus}",
+                            "A customer cannot be registered in multiple centers at the same time."
+                        ]
+                    ],
+                    'existing_customer' => [
+                        'id' => $existingCustomer->id,
+                        'full_name' => $customerName,
+                        'customer_code' => $existingCustomer->customer_code,
+                        'center_id' => $existingCustomer->center_id,
+                        'center_name' => $centerName,
+                        'branch_id' => $existingCustomer->branch_id,
+                        'branch_name' => $branchName,
+                        'status' => $existingCustomer->status,
+                    ]
+                ], 409); // 409 Conflict
+            }
+
+            // Store NIC in uppercase for consistency
+            $validated['customer_code'] = $nicToCheck;
+        }
+        // ===== END NIC VALIDATION =====
+
         try {
             $customer->update($validated);
 
             return response()->json([
                 'statusCode' => 2000,
                 'message' => 'Customer updated successfully',
-                'data' => $customer
+                'data' => $customer->load(['branch', 'center', 'group'])
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'error',
+                'statusCode' => 5000,
                 'message' => 'Failed to update customer: ' . $e->getMessage()
             ], 500);
         }
@@ -400,7 +504,7 @@ class CustomerController extends Controller
     public function getConstants()
     {
         $branches = Branch::select('id', 'branch_name')->get();
-        $centers = Center::select('id', 'center_name', 'branch_id')->get();
+        $centers = Center::select('id', 'center_name', 'branch_id', 'staff_id', 'status')->get();
         $groups = Group::select('id', 'group_name', 'center_id')->get();
 
         return response()->json([

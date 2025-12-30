@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'role' => \App\Http\Middleware\CheckRole::class,
+            'active_session' => \App\Http\Middleware\EnsureActiveSession::class,
             // Add other middleware aliases here
             // 'auth' => \App\Http\Middleware\Authenticate::class,
             // 'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
