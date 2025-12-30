@@ -77,12 +77,38 @@ export const centerService = {
             headers: getHeaders()
         });
 
-        // Custom handling for delete which might not return data
         if (!response.ok) {
             const isJson = response.headers.get('content-type')?.includes('application/json');
             const data = isJson ? await response.json() : null;
             const errorMessage = (data && data.message) || response.statusText;
             throw new Error(`Delete failed ${response.status}: ${errorMessage}`);
+        }
+    },
+
+    // Approve center
+    approveCenter: async (id: string): Promise<Center> => {
+        const response = await fetch(`${API_BASE_URL}/centers/${id}/approve`, {
+            method: 'PATCH',
+            ...fetchOptions,
+            headers: getHeaders()
+        });
+        return handleResponse<Center>(response);
+    },
+
+    // Reject center
+    rejectCenter: async (id: string, reason?: string): Promise<void> => {
+        const response = await fetch(`${API_BASE_URL}/centers/${id}/reject`, {
+            method: 'POST',
+            ...fetchOptions,
+            headers: getHeaders(),
+            body: JSON.stringify({ rejection_reason: reason })
+        });
+
+        if (!response.ok) {
+            const isJson = response.headers.get('content-type')?.includes('application/json');
+            const data = isJson ? await response.json() : null;
+            const errorMessage = (data && data.message) || response.statusText;
+            throw new Error(`Rejection failed ${response.status}: ${errorMessage}`);
         }
     }
 };

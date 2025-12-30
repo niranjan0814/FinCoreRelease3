@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { StaffStatsCard } from '../../components/staff/StaffStats';
 import { StaffTable } from '../../components/staff/StaffTable';
 import { RolePermissionsTable } from '../../components/staff/RolePermissionsTable';
 import { StaffForm } from '../../components/staff/StaffForm';
 import { staffService } from '../../services/staff.service';
+import { authService } from '../../services/auth.service';
 import { User, Permission, StaffStats } from '../../types/staff.types';
+import { useRouter } from 'next/navigation';
 
 export default function StaffManagementPage() {
     const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
@@ -17,10 +20,30 @@ export default function StaffManagementPage() {
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-
     const [currentUserRole, setCurrentUserRole] = useState<string>('');
+    const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+    const router = useRouter();
 
     useEffect(() => {
+        // Security check: Verify if the user has permission to view this page
+        const checkAccess = () => {
+            const hasViewPermission = authService.hasPermission('staff.view') || authService.hasPermission('users.view');
+            const isSuperAdmin = authService.hasRole('super_admin');
+
+            if (!hasViewPermission && !isSuperAdmin) {
+                console.warn('[Security] Unauthorized access attempt to staff-management. Redirecting...');
+                router.push('/');
+                return false;
+            }
+            return true;
+        };
+
+        if (typeof window !== 'undefined') {
+            const allowed = checkAccess();
+            setHasAccess(allowed);
+            if (!allowed) return;
+        }
+
         // checks for user role (Super Admin vs Admin) using localStorage.
         const storedRolesStr = localStorage.getItem('roles');
         if (storedRolesStr) {
@@ -39,7 +62,7 @@ export default function StaffManagementPage() {
             } catch (e) { }
         }
         loadData();
-    }, []);
+    }, [router]);
 
     const loadData = async () => {
         try {
@@ -70,16 +93,37 @@ export default function StaffManagementPage() {
     };
 
     const handleSaveUser = async (userData: any) => {
-        let response;
-        if (editingUser) {
-            response = await staffService.updateUser(editingUser.id, userData);
-        } else {
-            response = await staffService.createUser(userData);
+        try {
+            let response;
+            if (editingUser) {
+                response = await staffService.updateUser(editingUser.id, userData);
+                toast.success('User updated successfully!');
+            } else {
+                response = await staffService.createUser(userData);
+                toast.success('User created successfully!');
+            }
+            setShowAddUserModal(false);
+            setEditingUser(null);
+            loadData(); // Reload to show new user or updated user
+            return response;
+        } catch (error: any) {
+            console.error("Failed to save user", error);
+            toast.error(error.message || 'Failed to save user');
+            throw error;
         }
-        setShowAddUserModal(false);
-        setEditingUser(null);
-        loadData(); // Reload to show new user or updated user
-        return response;
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!window.confirm('Are you sure you want to delete this user?')) return;
+
+        try {
+            await staffService.deleteUser(userId);
+            setUsers(users.filter(u => u.id !== userId));
+            toast.success('User deleted successfully!');
+        } catch (error: any) {
+            console.error("Failed to delete user", error);
+            toast.error(error.message || 'Failed to delete user');
+        }
     };
 
     const handleEditUser = (user: User) => {
@@ -93,7 +137,11 @@ export default function StaffManagementPage() {
         totalRoles: roles.length
     };
 
-    if (loading) {
+    if (hasAccess === false) {
+        return null; // Don't render anything while redirecting
+    }
+
+    if (loading || hasAccess === null) {
         return <div className="p-6">Loading...</div>;
     }
 
@@ -153,7 +201,8 @@ export default function StaffManagementPage() {
                     <StaffTable
                         users={users}
                         onEdit={handleEditUser}
-                        onDelete={(id) => console.log('Delete', id)}
+                        onDelete={handleDeleteUser}
+                        onRefresh={loadData}
                     />
                 )}
 

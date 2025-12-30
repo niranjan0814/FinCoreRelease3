@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Edit, UsersRound } from 'lucide-react';
+import { Edit, UsersRound, Trash2 } from 'lucide-react';
 import { Group } from '../../types/group.types';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../common/Pagination';
@@ -11,9 +11,10 @@ interface GroupTableProps {
     totalGroups: number;
     onEdit: (group: Group) => void;
     onViewMembers: (group: Group) => void;
+    onDelete?: (groupId: number) => void;
 }
 
-export function GroupTable({ groups, totalGroups, onEdit, onViewMembers }: GroupTableProps) {
+export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelete }: GroupTableProps) {
     const {
         currentPage,
         itemsPerPage,
@@ -94,7 +95,7 @@ export function GroupTable({ groups, totalGroups, onEdit, onViewMembers }: Group
                             </div>
 
                             {/* Actions */}
-                            <div className="col-span-1">
+                            <div className="col-span-1 flex items-center gap-2">
                                 <button
                                     onClick={() => onEdit(group)}
                                     className="p-1.5 hover:bg-blue-50 rounded text-blue-600"
@@ -102,6 +103,15 @@ export function GroupTable({ groups, totalGroups, onEdit, onViewMembers }: Group
                                 >
                                     <Edit className="w-4 h-4" />
                                 </button>
+                                {onDelete && (
+                                    <button
+                                        onClick={() => onDelete(group.id)}
+                                        className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                                        aria-label="Delete group"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

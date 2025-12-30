@@ -16,7 +16,7 @@ export type Page =
     | 'reports'
     | 'finance' | 'fund-transactions' | 'branch-transactions'
     | 'investments' | 'staff-management' | 'roles-privileges'
-    | 'complaints' | 'system-config' | 'documents' | 'public-website'
+    | 'complaints' | 'system-config' | 'documents' | 'public-website' | 'center-requests'
     | string;
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
@@ -25,42 +25,90 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const { isDarkMode } = useTheme();
 
-    const [user, setUser] = useState({
-        name: "Admin User",
-        role: "Super Admin", // Fallback Default
-        branch: "Head Office"
-    });
+    const [user, setUser] = useState<{ name: string; role: string; branch: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        authService.refreshProfile(); // Background refresh to sync hierarchy/permissions
-        const currentUser = authService.getCurrentUser();
-        if (currentUser) {
-            // Try to get role from the stored roles array first
-            const storedRolesStr = localStorage.getItem('roles');
-            let userRole = currentUser.role;
-
-            if (storedRolesStr) {
-                try {
-                    const roles = JSON.parse(storedRolesStr);
-                    if (Array.isArray(roles) && roles.length > 0) {
-                        // Use the name of the first role (e.g., 'super_admin')
-                        userRole = roles[0].name;
-                    }
-                } catch (e) {
-                    console.error("Failed to parse roles", e);
-                }
+        const checkAuth = async () => {
+            // If on login page, we don't need to check auth to render
+            if (pathname === '/login') {
+                setIsLoading(false);
+                return;
             }
 
-            setUser({
-                name: currentUser.name,
-                role: userRole || 'Staff',
-                branch: 'Head Office' // You might want to store/retrieve this from user details too
-            });
-        }
-    }, [pathname]);
+            const isAuthenticated = authService.isAuthenticated();
+
+            if (!isAuthenticated) {
+                router.push('/login');
+                setIsLoading(false);
+                return;
+            }
+
+            // Sync profile data
+            try {
+                // Try to get from local storage first for instant render
+                const currentUser = authService.getCurrentUser();
+                if (currentUser) {
+                    const storedRolesStr = localStorage.getItem('roles');
+                    let userRole = currentUser.role;
+
+                    if (storedRolesStr) {
+                        try {
+                            const roles = JSON.parse(storedRolesStr);
+                            if (Array.isArray(roles) && roles.length > 0) {
+                                userRole = roles[0].name;
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse roles", e);
+                        }
+                    }
+
+                    setUser({
+                        name: currentUser.name,
+                        role: userRole || 'Staff',
+                        branch: 'Head Office'
+                    });
+                } else {
+                    // If token exists but no user data, try to refresh
+                    await authService.refreshProfile();
+                    const refreshedUser = authService.getCurrentUser();
+                    if (refreshedUser) {
+                        // ... similar logic to set user ... (simplified for now)
+                        setUser({
+                            name: refreshedUser.name,
+                            role: (localStorage.getItem('roles') ? JSON.parse(localStorage.getItem('roles')!)[0]?.name : null) || 'Staff',
+                            branch: 'Head Office'
+                        });
+                    } else {
+                        // Refresh failed, probably invalid token
+                        authService.logout();
+                        router.push('/login');
+                    }
+                }
+            } catch (error) {
+                console.error("Auth check failed", error);
+                router.push('/login');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        checkAuth();
+    }, [pathname, router]);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">Securing session...</p>
+                </div>
+            </div>
+        );
+    }
 
     // If we are on the login page (or any other public page), render children directly without the shell
-    if (pathname === '/login') {
+    if (pathname === '/login' || !user) {
         return (
             <>
                 <ToastContainer

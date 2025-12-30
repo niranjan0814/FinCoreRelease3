@@ -14,6 +14,8 @@ export function GroupMemberModal({ isOpen, onClose, group }: GroupMemberModalPro
     if (!isOpen || !group) return null;
 
     const members = group.members || [];
+    const customers = group.customers || [];
+    const displayCount = customers.length > 0 ? customers.length : members.length;
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -23,7 +25,7 @@ export function GroupMemberModal({ isOpen, onClose, group }: GroupMemberModalPro
                         <div>
                             <h2 className="text-lg font-semibold text-gray-900">{group.group_name}</h2>
                             <p className="text-sm text-gray-600 mt-1">
-                                {members.length} {members.length === 1 ? 'Member' : 'Members'}
+                                {displayCount} {displayCount === 1 ? 'Member' : 'Members'}
                             </p>
                         </div>
                         <button
@@ -38,37 +40,64 @@ export function GroupMemberModal({ isOpen, onClose, group }: GroupMemberModalPro
                 <div className="p-6">
                     {group.customers && group.customers.length > 0 ? (
                         <div className="space-y-3">
-                            {group.customers.map((customer) => (
-                                <div
-                                    key={customer.id}
-                                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
-                                            <span className="text-white text-base font-bold">
-                                                {customer.full_name.charAt(0).toUpperCase()}
+                            {group.customers.map((customer) => {
+                                const isTransferred = Number(customer.center_id) !== Number(group.center_id);
+
+                                return (
+                                    <div
+                                        key={customer.id}
+                                        className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${isTransferred
+                                            ? 'bg-amber-50 border-amber-200'
+                                            : 'border-gray-200 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${isTransferred ? 'bg-amber-500 shadow-amber-100' : 'bg-blue-600 shadow-blue-100'
+                                                }`}>
+                                                <span className="text-white text-base font-bold">
+                                                    {customer.full_name.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-gray-900">{customer.full_name}</p>
+                                                    {isTransferred && (
+                                                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] uppercase font-bold rounded border border-amber-200">
+                                                            Transferred
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 font-mono uppercase">{customer.customer_code}</p>
+                                                {isTransferred && (
+                                                    <p className="text-[10px] text-amber-600 mt-0.5 font-medium">
+                                                        Transferred to: {customer.center?.center_name || `#${customer.center_id}`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <span
+                                                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold capitalize ${customer.status === 'active'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-red-100 text-red-700'
+                                                    }`}
+                                            >
+                                                {customer.status || 'Active'}
                                             </span>
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-gray-900">{customer.full_name}</p>
-                                            <p className="text-xs text-gray-500 font-mono uppercase">{customer.customer_code}</p>
+                                            <div className="text-[10px] text-gray-500 mt-1.5 font-medium space-y-0.5">
+                                                <p className="flex items-center justify-end gap-1">
+                                                    <span className="text-gray-400 uppercase text-[9px]">Branch:</span>
+                                                    {customer.branch?.branch_name || 'N/A'}
+                                                </p>
+                                                <p className="flex items-center justify-end gap-1">
+                                                    <span className="text-gray-400 uppercase text-[9px]">Center:</span>
+                                                    {customer.center?.center_name || 'N/A'}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <span
-                                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold capitalize ${customer.status === 'active'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
-                                                }`}
-                                        >
-                                            {customer.status || 'Active'}
-                                        </span>
-                                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-semibold">
-                                            {customer.city} • {customer.district}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : members.length > 0 ? (
                         <div className="space-y-3">

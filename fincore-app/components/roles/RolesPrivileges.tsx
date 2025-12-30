@@ -101,15 +101,14 @@ export function RolesPrivileges() {
 
     const handleSaveRole = async (roleData: Partial<Role>) => {
         try {
-            // Map frontend matrix to permission IDs
-            const permissionIds = roleService.getPermissionIdsFromMatrix(roleData.permissions || [], allPermissions);
-            const payload = { ...roleData, permissionIds };
+            // roleData.permissions contains the matrix format from RoleModal
+            // The service will convert it to permission_matrix format for the backend
 
             if (editingRole) {
-                await roleService.updateRole(editingRole.id, payload);
+                await roleService.updateRole(editingRole.id, roleData);
                 toast.success("Role updated successfully");
             } else {
-                await roleService.createRole(payload);
+                await roleService.createRole(roleData);
                 toast.success("New role created");
             }
             await loadData();

@@ -44,7 +44,7 @@ export function ViewMeetingScheduling() {
             setIsLoading(true);
             const [centersData, branchesData, fieldOfficersResponse] = await Promise.all([
                 centerService.getCenters(),
-                branchService.getBranches(),
+                branchService.getBranchesAll(),
                 fetch(`${API_BASE_URL}/staffs/by-role/field_officer`, {
                     headers: getHeaders(),
                     credentials: 'include'
@@ -71,8 +71,9 @@ export function ViewMeetingScheduling() {
     };
 
     const filteredCenters = centers.filter(center => {
-        if (selectedBranch && center.branch_id !== selectedBranch) return false;
-        if (selectedUser && center.allowedStaff && !center.allowedStaff.includes(selectedUser)) return false;
+        if (center.status === 'rejected') return false;
+        if (selectedBranch && String(center.branch_id) !== String(selectedBranch)) return false;
+        if (selectedUser && String(center.staff_id) !== String(selectedUser)) return false;
         return true;
     });
 
@@ -194,7 +195,7 @@ export function ViewMeetingScheduling() {
                             <div className="mt-4 border-t border-gray-100 pt-3">
                                 <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Schedule</h4>
                                 <div className="space-y-1.5">
-                                    {center.open_days?.map((schedule, idx) => (
+                                    {center.open_days?.slice(0, 3).map((schedule, idx) => (
                                         <div key={idx} className="flex items-center justify-between text-sm">
                                             <div className="flex items-center gap-2 text-gray-700">
                                                 <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -206,6 +207,11 @@ export function ViewMeetingScheduling() {
                                             </div>
                                         </div>
                                     ))}
+                                    {(center.open_days?.length || 0) > 3 && (
+                                        <p className="text-xs text-center text-gray-400 italic pt-1 mt-1">
+                                            +{(center.open_days?.length || 0) - 3} more schedules
+                                        </p>
+                                    )}
                                     {(!center.open_days || center.open_days.length === 0) && (
                                         <p className="text-sm text-gray-400 italic">No schedule set</p>
                                     )}

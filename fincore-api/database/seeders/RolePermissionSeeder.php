@@ -74,6 +74,7 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'customers.delete', 'display_name' => 'Delete Customers', 'module' => 'customers', 'permission_group_id' => 5],
                 ['name' => 'customers.import', 'display_name' => 'Import Customers', 'module' => 'customers', 'permission_group_id' => 5],
                 ['name' => 'customers.export', 'display_name' => 'Export Customers', 'module' => 'customers', 'permission_group_id' => 5],
+                ['name' => 'customers.approve_transfer', 'display_name' => 'Approve Center Transfer', 'module' => 'customers', 'permission_group_id' => 5], // New permission
                 //branch management
                 ['name' => 'branches.view', 'display_name' => 'View Branches', 'module' => 'branches', 'permission_group_id' => 1],
                 ['name' => 'branches.create', 'display_name' => 'Create Branches', 'module' => 'branches', 'permission_group_id' => 1],
@@ -244,6 +245,7 @@ class RolePermissionSeeder extends Seeder
                 // 'centers.create',
                 // 'centers.edit',
                 // 'centers.delete',
+                'customers.approve_transfer',
             ])->get();
             if ($superAdminRole) {
                 $superAdminRole->syncPermissions($superAdminPermissions);
@@ -296,6 +298,7 @@ class RolePermissionSeeder extends Seeder
                 'centers.create',
                 'centers.edit',
                 
+                'customers.approve_transfer',                
             ])->get();
              if ($adminRole) {
                 $adminRole->syncPermissions($adminPermissions);
@@ -309,6 +312,7 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view',
                 'centers.view',
                 'centers.edit',
+                'customers.approve_transfer',
             ])->get();
             if ($managerRole) {
                 $managerRole->syncPermissions($managerPermissions);

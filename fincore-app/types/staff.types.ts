@@ -1,3 +1,18 @@
+export interface TodaySession {
+    id: number;
+    date: string;
+    login_at: string | null;
+    logout_at: string | null;
+    logout_type: string | null;
+    status: 'OPEN' | 'CLOSED';
+    worked_minutes: number;
+    attendance_status: 'PRESENT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    auto_logged_out: boolean;
+    remarks: string | null;
+    approved_by: number | null;
+    approved_at: string | null;
+}
+
 export interface User {
     id: string;
     name: string;
@@ -6,6 +21,10 @@ export interface User {
     role: string;
     branch: string;
     status: 'Active' | 'Inactive' | 'Blocked';
+    // Session-related fields
+    is_locked?: boolean;
+    locked_until?: string | null;
+    today_session?: TodaySession | null;
 }
 
 export interface Staff {

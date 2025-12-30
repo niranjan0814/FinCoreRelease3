@@ -4,16 +4,27 @@ export interface User {
     id: number;
     name: string;
     email: string;
+    user_name: string;
     role: string;
     // Add other user fields as needed
+}
+
+export interface SessionInfo {
+    id: number;
+    date: string;
+    login_at: string;
+    status: string;
 }
 
 export interface LoginResponse {
     token: string;
     user: User;
+    session?: SessionInfo;
     message?: string;
     status: number;
 }
+
+export type LogoutType = 'LOGOUT' | 'ON_WORK' | 'STAY_IN_OFFICE';
 
 export const authService = {
     login: async (username: string, password: string): Promise<LoginResponse> => {
@@ -35,13 +46,18 @@ export const authService = {
 
             // Store session
             if (data.statusCode === 2000 && data.data) {
-                const { access_token, user, roles, permissions } = data.data;
+                const { access_token, user, roles, permissions, session } = data.data;
 
                 if (access_token) {
                     localStorage.setItem('token', access_token);
                     localStorage.setItem('user', JSON.stringify(user));
                     localStorage.setItem('roles', JSON.stringify(roles));
                     localStorage.setItem('permissions', JSON.stringify(permissions));
+
+                    // Store session info if available
+                    if (session) {
+                        localStorage.setItem('session', JSON.stringify(session));
+                    }
                 }
 
                 return data;
@@ -54,18 +70,47 @@ export const authService = {
         }
     },
 
-    logout: async (): Promise<void> => {
+    /**
+     * Logout with optional logout type
+     * @param logoutType - 'LOGOUT' (end day), 'ON_WORK' (field work), 'STAY_IN_OFFICE' (idle)
+     * @param remarks - Optional notes
+     */
+    logout: async (logoutType: LogoutType = 'LOGOUT', remarks?: string): Promise<void> => {
         try {
             await fetch(`${API_BASE_URL}/auth/logout`, {
                 method: 'POST',
-                headers: getHeaders()
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    logout_type: logoutType,
+                    remarks
+                })
             });
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
+            // Always clear local storage for all logout types
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('roles');
+            localStorage.removeItem('permissions');
+            localStorage.removeItem('session');
         }
+    },
+
+    /**
+     * Get current session from localStorage
+     */
+    getCurrentSession: (): SessionInfo | null => {
+        if (typeof window === 'undefined') return null;
+        const sessionStr = localStorage.getItem('session');
+        if (sessionStr) {
+            try {
+                return JSON.parse(sessionStr);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
     },
 
     getCurrentUser: (): User | null => {

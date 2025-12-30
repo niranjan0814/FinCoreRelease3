@@ -12,7 +12,6 @@ export const staffService = {
             const data = await response.json();
 
             // Safety check for null/undefined data
-            // API might return standard paginated response { data: { data: [...] } } or flat { data: [...] }
             let items = [];
             if (data?.data?.items && Array.isArray(data.data.items)) {
                 items = data.data.items;
@@ -20,18 +19,21 @@ export const staffService = {
                 items = data.data;
             } else if (data?.data?.data && Array.isArray(data.data.data)) {
                 items = data.data.data;
-            } else if (Array.isArray(data)) { // Fallback if API returns direct array
+            } else if (Array.isArray(data)) {
                 items = data;
             }
 
             return items.map((u: any) => ({
                 id: u.id,
-                name: u.full_name || u.user_name || u.name || u.email, // Prioritize full_name for staff
-                staffId: u.user_name && /^ST\d+/.test(u.user_name) ? u.user_name : undefined, // Store staff ID if it exists
+                name: u.full_name || u.user_name || u.name || u.email,
+                staffId: u.user_name && /^ST\d+/.test(u.user_name) ? u.user_name : undefined,
                 email: u.email,
                 role: (u.roles && u.roles.length > 0) ? (u.roles[0].display_name || u.roles[0].name) : (u.role || 'N/A'),
-                branch: u.branch?.name || (u.branch_id ? 'Branch ' + u.branch_id : 'Head Office'),
-                status: (u.is_active || u.status === 'Active' || u.status === 1) ? 'Active' : 'Inactive'
+                branch: u.branch?.name || (u.branch_id ? 'Branch ' + u.branch_id : '-'),
+                status: (u.is_active || u.status === 'Active' || u.status === 1) ? 'Active' : 'Inactive',
+                is_locked: u.is_locked || false,
+                locked_until: u.locked_until || null,
+                today_session: u.today_session || null
             }));
         } catch (error) {
             console.error("Error fetching users", error);
@@ -112,7 +114,10 @@ export const staffService = {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'Failed to create admin');
+            const msg = data.errors
+                ? Object.values(data.errors).flat().join(', ')
+                : (data.message || 'Failed to create admin');
+            throw new Error(msg);
         }
         return data;
     },
@@ -162,7 +167,10 @@ export const staffService = {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || `Failed to create ${role}`);
+            const msg = data.errors
+                ? Object.values(data.errors).flat().join(', ')
+                : (data.message || `Failed to create ${role}`);
+            throw new Error(msg);
         }
         return data;
     },
@@ -217,7 +225,10 @@ export const staffService = {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'Failed to update user');
+            const msg = data.errors
+                ? Object.values(data.errors).flat().join(', ')
+                : (data.message || 'Failed to update user');
+            throw new Error(msg);
         }
         return data;
     },
@@ -234,5 +245,17 @@ export const staffService = {
 
         const data = await response.json();
         return data.data;
+    },
+
+    deleteUser: async (id: number | string): Promise<void> => {
+        const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || 'Failed to delete user');
+        }
     }
 };

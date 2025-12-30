@@ -25,12 +25,27 @@ export default function CustomersPage() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
     useEffect(() => {
-        if (!authService.hasPermission('customers.view')) {
-            toast.error('You do not have permission to view customers');
-            router.push('/');
+        const checkAccess = () => {
+            const hasViewPermission = authService.hasPermission('customers.view');
+            const isSuperAdmin = authService.hasRole('super_admin');
+
+            if (!hasViewPermission && !isSuperAdmin) {
+                toast.error('You do not have permission to view customers');
+                router.push('/');
+                return false;
+            }
+            return true;
+        };
+
+        if (typeof window !== 'undefined') {
+            const allowed = checkAccess();
+            setHasAccess(allowed);
+            if (allowed) loadCustomers();
         }
-    }, []);
+    }, [router]);
 
     // Stats
     const [stats, setStats] = useState<CustomerStats>({
@@ -39,10 +54,6 @@ export default function CustomersPage() {
         customersWithLoans: 0,
         newThisMonth: 0
     });
-
-    useEffect(() => {
-        loadCustomers();
-    }, []);
 
     useEffect(() => {
         applyFilters();
@@ -147,6 +158,17 @@ export default function CustomersPage() {
             toast.error(error.message || 'Failed to export customers');
         }
     };
+
+    if (hasAccess === false) return null;
+
+    if (hasAccess === null) {
+        return (
+            <div className="p-12 text-center">
+                <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">Verifying permissions...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">

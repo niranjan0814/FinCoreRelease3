@@ -27,6 +27,10 @@ class UpdateRoleRequest extends FormRequest
             'restrictions' => 'nullable|array',
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id',
+            // New: permission_matrix for dynamic permission creation
+            'permission_matrix' => 'nullable|array',
+            'permission_matrix.*.module' => 'required_with:permission_matrix|string',
+            'permission_matrix.*.action' => 'required_with:permission_matrix|string',
         ];
     }
 }

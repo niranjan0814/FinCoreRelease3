@@ -1,37 +1,30 @@
 import { Branch, BranchFormData, ApiResponse } from '../types/branch.types';
 
-const API_Base_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-
-// Helper to get cookie value
-const getCookie = (name: string) => {
-    if (typeof document === 'undefined') return null;
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
-};
-
-// Helper to get headers with Auth token and CSRF token
-const getHeaders = () => {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
-    const xsrfToken = getCookie('XSRF-TOKEN');
-
-    return {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...(xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {})
-    };
-};
+import { API_BASE_URL, getHeaders } from './api.config';
 
 const fetchOptions = {
     credentials: 'include' as RequestCredentials, // Important for cookies/CSRF
 };
 
 export const branchService = {
-    // Get all branches
+    // Get all branches (for dropdowns)
+    getBranchesAll: async (): Promise<Branch[]> => {
+        const response = await fetch(`${API_BASE_URL}/branches/all`, {
+            ...fetchOptions,
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch branches: ${response.statusText}`);
+        }
+
+        const json: ApiResponse<Branch[]> = await response.json();
+        return json.data;
+    },
+
+    // Get all branches (with full details/filtering)
     getBranches: async (): Promise<Branch[]> => {
-        const response = await fetch(`${API_Base_URL}/branches`, {
+        const response = await fetch(`${API_BASE_URL}/branches`, {
             ...fetchOptions,
             headers: getHeaders()
         });
@@ -46,7 +39,7 @@ export const branchService = {
 
     // Get single branch
     getBranchById: async (id: number): Promise<Branch> => {
-        const response = await fetch(`${API_Base_URL}/branches/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/branches/${id}`, {
             ...fetchOptions,
             headers: getHeaders()
         });
@@ -61,7 +54,7 @@ export const branchService = {
 
     // Create new branch
     createBranch: async (data: BranchFormData): Promise<Branch> => {
-        const response = await fetch(`${API_Base_URL}/branches`, {
+        const response = await fetch(`${API_BASE_URL}/branches`, {
             method: 'POST',
             ...fetchOptions,
             headers: getHeaders(),
@@ -86,7 +79,7 @@ export const branchService = {
 
     // Update branch
     updateBranch: async (id: number, data: BranchFormData): Promise<Branch> => {
-        const response = await fetch(`${API_Base_URL}/branches/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/branches/${id}`, {
             method: 'PUT',
             ...fetchOptions,
             headers: getHeaders(),
@@ -110,7 +103,7 @@ export const branchService = {
 
     // Delete branch
     deleteBranch: async (id: number): Promise<void> => {
-        const response = await fetch(`${API_Base_URL}/branches/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/branches/${id}`, {
             method: 'DELETE',
             ...fetchOptions,
             headers: getHeaders()

@@ -16,6 +16,7 @@ class Center extends Model
         'staff_id',
         'group_count',
         'status',
+        'rejection_reason',
     ];
 
     protected $casts = [
@@ -31,5 +32,15 @@ class Center extends Model
     public function staff()
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    public function groups()
+    {
+        return $this->hasMany(Group::class);
+    }
+
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
     }
 }

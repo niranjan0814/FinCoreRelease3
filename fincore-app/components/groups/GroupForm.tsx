@@ -6,6 +6,7 @@ import { Center } from '../../types/center.types';
 import { Customer } from '../../types/customer.types';
 import { centerService } from '../../services/center.service';
 import { customerService } from '../../services/customer.service';
+import { authService } from '../../services/auth.service';
 import { X, Search, Check, Users, Loader2, AlertCircle } from 'lucide-react';
 
 interface GroupFormProps {
@@ -30,7 +31,17 @@ export function GroupForm({ isOpen, onClose, onSubmit, initialData }: GroupFormP
             setIsLoadingData(true);
             try {
                 const centersData = await centerService.getCenters();
-                setCenters(centersData);
+                const user = authService.getCurrentUser();
+                const isFieldOfficer = authService.hasRole('field_officer');
+
+                // Filter logic: Active centers + assigned to FO (if applicable)
+                let filtered = centersData.filter((center: Center) => center.status === 'active');
+
+                if (isFieldOfficer && user) {
+                    filtered = filtered.filter((center: Center) => center.staff_id === user.user_name);
+                }
+
+                setCenters(filtered);
             } catch (error) {
                 console.error('Failed to load centers:', error);
             } finally {
@@ -174,7 +185,7 @@ export function GroupForm({ isOpen, onClose, onSubmit, initialData }: GroupFormP
                             <option value="">Select Center</option>
                             {centers.map((center) => (
                                 <option key={center.id} value={center.id}>
-                                    {center.center_name} ({center.CSU_id})
+                                    {center.center_name}{center.CSU_id ? ` (${center.CSU_id})` : ''}
                                 </option>
                             ))}
                         </select>
