@@ -26,7 +26,8 @@ import {
     Package,
     MessageSquare,
     PieChart,
-    ShieldCheck
+    ShieldCheck,
+    RotateCcw
 } from 'lucide-react';
 import { Page } from './MainLayout';
 
@@ -139,7 +140,8 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
 
     const collectionMenuItems: MenuItem[] = [
         { id: 'due-list' as Page, label: 'Due List', icon: <ClipboardList className="w-4 h-4" />, permission: 'collections.view' },
-        { id: 'collections' as Page, label: 'Collections', icon: <DollarSign className="w-4 h-4" />, permission: 'collections.create' },
+        { id: 'collections' as Page, label: 'Collections', icon: <DollarSign className="w-4 h-4" />, permission: 'collections.view' },
+        { id: 'receipt-rejections' as Page, label: 'Cancellation Requests', icon: <RotateCcw className="w-4 h-4" />, permission: 'receipts.approvecancel' },
         { id: 'collection-summary' as Page, label: 'Collection Summary', icon: <Receipt className="w-4 h-4" />, permission: 'collections.view' }
     ];
 
@@ -213,6 +215,7 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                                 <div className="ml-8 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                     {item.submenu?.map(subItem => {
                                         if (subItem.roles && !subItem.roles.includes(userRole)) return null;
+                                        if (subItem.permission && (!isMounted || !authService.hasPermission(subItem.permission))) return null;
                                         const isSubActive = currentPage === subItem.id;
                                         return (
                                             <button

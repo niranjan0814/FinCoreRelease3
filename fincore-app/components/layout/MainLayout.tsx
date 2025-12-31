@@ -18,6 +18,7 @@ export type Page =
     | 'investments' | 'staff-management' | 'roles-privileges'
     | 'shareholders'
     | 'complaints' | 'system-config' | 'documents' | 'public-website' | 'center-requests'
+    | 'receipt-rejections'
     | string;
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
@@ -158,6 +159,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'loan-product': '/loan-product',
             'roles-privileges': '/roles-privileges',
             'customer-requests': '/customers/requests',
+            'receipt-rejections': '/collections/rejections',
         };
 
         const path = routeMap[pageId as string] || `/${pageId}`;

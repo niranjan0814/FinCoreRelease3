@@ -120,9 +120,6 @@ export default function CustomersPage() {
         }
     };
 
-    const handleRequestEdit = () => {
-        toast.info('Edit approval request sent to admin');
-    };
 
     const handleViewFullDetails = () => {
         setShowDetailsModal(true);
@@ -352,7 +349,6 @@ export default function CustomersPage() {
                             customer={selectedCustomer}
                             onClose={() => setSelectedCustomer(null)}
                             onEdit={handleEdit}
-                            onRequestEdit={handleRequestEdit}
                             onViewFullDetails={handleViewFullDetails}
                             onStatusChange={handleStatusChange}
                         />
