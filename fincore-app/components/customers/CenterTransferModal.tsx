@@ -20,9 +20,24 @@ export default function CenterTransferModal({ customer, onClose, onSuccess }: Ce
     });
     const [error, setError] = useState<string | null>(null);
 
+    const [eligibility, setEligibility] = useState<{ eligible: boolean; message?: string } | null>(null);
+
     useEffect(() => {
         loadCenters();
+        checkEligibility();
     }, []);
+
+    const checkEligibility = async () => {
+        try {
+            const result = await customerService.checkTransferEligibility(customer.id);
+            setEligibility(result);
+            if (!result.eligible) {
+                setError(result.message || "Customer is not eligible for transfer");
+            }
+        } catch (err) {
+            console.error("Eligibility check failed", err);
+        }
+    };
 
     const loadCenters = async () => {
         try {
@@ -150,13 +165,18 @@ export default function CenterTransferModal({ customer, onClose, onSuccess }: Ce
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || eligibility?.eligible === false}
                             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? (
                                 <>
                                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     Submitting...
+                                </>
+                            ) : eligibility?.eligible === false ? (
+                                <>
+                                    <AlertCircle size={18} />
+                                    Transfer Blocked
                                 </>
                             ) : (
                                 <>

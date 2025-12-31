@@ -30,7 +30,7 @@ export function LoanStats({ stats }: LoanStatsProps) {
                         {stats.total_count > 0 ? ((stats.active_count / stats.total_count) * 100).toFixed(0) : 0}%
                     </span>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">Active Loans</p>
+                <p className="text-sm text-gray-600 mb-1">Approved Loans</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.active_count}</p>
             </div>
 

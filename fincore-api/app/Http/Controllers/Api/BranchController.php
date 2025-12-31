@@ -113,14 +113,14 @@ class BranchController extends Controller
             // Validate input
             $validated = $request->validate([
                 'branch_id' => 'nullable|string|unique:branches,branch_id',
-                'branch_name' => 'required|string|max:255',
+                'branch_name' => 'required|string|max:255|unique:branches,branch_name',
                 'location' => 'nullable|string|max:255',
                 'address' => 'required|string',
                 'city' => 'required|string|max:100',
                 'province' => 'required|string|max:100',
                 'postal_code' => 'required|string|max:20',
                 'phone' => ['required', 'string', 'max:20', 'regex:/^(\+94|0)?[0-9]{9}$/'], // Validates SL format mostly
-                'email' => 'required|email|max:255',
+                'email' => 'required|email|max:255|unique:branches,email',
                 'manager_name' => 'required|string|max:255',
                 'manager_staff_id' => 'nullable|string',
                 'staff_ids' => 'nullable|array',
@@ -169,20 +169,47 @@ class BranchController extends Controller
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Check if it's a duplicate branch_id error
+            // Check for duplicate errors
             $errors = $e->errors();
             
-            if (isset($errors['branch_id'])) {
-                foreach ($errors['branch_id'] as $error) {
-                    if (str_contains($error, 'has already been taken')) {
-                        return response()->json([
-                            'status' => 'error',
-                            'status_code' => 4090,
-                            'message' => 'Branch already exists',
-                            'error' => 'A branch with this ID already exists in the system',
-                            'errors' => $errors
-                        ], 409);
+            if (isset($errors['branch_id']) || isset($errors['branch_name']) || isset($errors['email'])) {
+                $isDuplicateId = false;
+                $isDuplicateName = false;
+                $isDuplicateEmail = false;
+
+                if (isset($errors['branch_id'])) {
+                    foreach ($errors['branch_id'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateId = true;
                     }
+                }
+
+                if (isset($errors['branch_name'])) {
+                    foreach ($errors['branch_name'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateName = true;
+                    }
+                }
+
+                if (isset($errors['email'])) {
+                    foreach ($errors['email'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateEmail = true;
+                    }
+                }
+
+                if ($isDuplicateId || $isDuplicateName || $isDuplicateEmail) {
+                    $messages = [];
+                    if ($isDuplicateId) $messages[] = 'Branch ID';
+                    if ($isDuplicateName) $messages[] = 'Branch Name';
+                    if ($isDuplicateEmail) $messages[] = 'Branch Email';
+
+                    $msg = implode(' and ', $messages) . ' already exists';
+
+                    return response()->json([
+                        'status' => 'error',
+                        'status_code' => 4090,
+                        'message' => 'Duplicate entry found',
+                        'error' => $msg,
+                        'errors' => $errors
+                    ], 409);
                 }
             }
 
@@ -295,14 +322,25 @@ class BranchController extends Controller
                     'string',
                     Rule::unique('branches', 'branch_id')->ignore($branch->id)
                 ],
-                'branch_name' => 'sometimes|required|string|max:255',
+                'branch_name' => [
+                    'sometimes',
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('branches', 'branch_name')->ignore($branch->id)
+                ],
                 'location' => 'nullable|string|max:255',
                 'address' => 'required|string',
                 'city' => 'required|string|max:100',
                 'province' => 'required|string|max:100',
                 'postal_code' => 'required|string|max:20',
                 'phone' => ['required', 'string', 'max:20', 'regex:/^(\+94|0)?[0-9]{9}$/'],
-                'email' => 'required|email|max:255',
+                'email' => [
+                    'required',
+                    'email',
+                    'max:255',
+                    Rule::unique('branches', 'email')->ignore($branch->id)
+                ],
                 'manager_name' => 'required|string|max:255',
                 'manager_staff_id' => 'nullable|string',
                 'staff_ids' => 'nullable|array',
@@ -355,18 +393,47 @@ class BranchController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->errors();
             
-            // Check for duplicate branch_id error
-            if (isset($errors['branch_id'])) {
-                foreach ($errors['branch_id'] as $error) {
-                    if (str_contains($error, 'has already been taken')) {
-                        return response()->json([
-                            'status' => 'error',
-                            'status_code' => 4090,
-                            'message' => 'Branch already exists',
-                            'error' => 'Another branch with this ID already exists',
-                            'errors' => $errors
-                        ], 409);
+            // Check for duplicate errors
+            $errors = $e->errors();
+            
+            if (isset($errors['branch_id']) || isset($errors['branch_name']) || isset($errors['email'])) {
+                $isDuplicateId = false;
+                $isDuplicateName = false;
+                $isDuplicateEmail = false;
+
+                if (isset($errors['branch_id'])) {
+                    foreach ($errors['branch_id'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateId = true;
                     }
+                }
+
+                if (isset($errors['branch_name'])) {
+                    foreach ($errors['branch_name'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateName = true;
+                    }
+                }
+
+                if (isset($errors['email'])) {
+                    foreach ($errors['email'] as $error) {
+                        if (str_contains($error, 'has already been taken')) $isDuplicateEmail = true;
+                    }
+                }
+
+                if ($isDuplicateId || $isDuplicateName || $isDuplicateEmail) {
+                    $messages = [];
+                    if ($isDuplicateId) $messages[] = 'Branch ID';
+                    if ($isDuplicateName) $messages[] = 'Branch Name';
+                    if ($isDuplicateEmail) $messages[] = 'Branch Email';
+
+                    $msg = 'Another branch with this ' . implode(' or ', $messages) . ' already exists';
+
+                    return response()->json([
+                        'status' => 'error',
+                        'status_code' => 4090,
+                        'message' => 'Duplicate entry found',
+                        'error' => $msg,
+                        'errors' => $errors
+                    ], 409);
                 }
             }
 

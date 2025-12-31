@@ -6,6 +6,7 @@ import { Menu, Bell, Search, User, LogOut, ChevronDown, Moon, Sun, Clock } from 
 import { useTheme } from '../../contexts/ThemeContext';
 import { authService, LogoutType } from '../../services/auth.service';
 import { sessionService, WorkStatus, getWorkStatusLabel, getWorkStatusColor } from '../../services/session.service';
+import { toast } from 'react-toastify';
 
 interface HeaderProps {
     user: {
@@ -246,8 +247,8 @@ export function Header({ user, onLogout, onToggleSidebar, onProfileSettings }: H
             // Call API to discard session and lock account
             await sessionService.midnightTimeoutLock();
 
-            // Show alert and redirect to login
-            alert('Your session has been discarded due to timeout. Your account is now locked. Please contact your manager to unlock.');
+            // Show toast and redirect to login
+            toast.error('Your session has been discarded due to timeout. Your account is now locked. Please contact your manager to unlock.', { autoClose: false });
 
             onLogout();
             router.push('/login');

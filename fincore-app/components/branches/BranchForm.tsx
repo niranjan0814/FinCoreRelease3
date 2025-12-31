@@ -96,6 +96,17 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
         return Object.keys(newErrors).length === 0;
     };
 
+    const hasChanges = !initialData || Object.keys(formData).some(key => {
+        // Skip comparing staff_ids for change detection if it's not strictly required here
+        if (key === 'staff_ids' || key === 'manager_staff_id') return false;
+
+        const currentVal = formData[key as keyof BranchFormData];
+        const initialVal = initialData[key as keyof Branch];
+
+        // Normalize comparison (null/undefined vs empty string)
+        return (currentVal || '') !== (initialVal || '');
+    });
+
     const handleSubmit = () => {
         if (validate()) {
             onSave(formData);
@@ -244,7 +255,7 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                     </div>
 
                     {/* Email & Manager */}
-                    
+
                 </div>
 
                 <div className="p-6 border-t border-gray-200 flex gap-3 justify-end bg-gray-50 rounded-b-lg">
@@ -256,7 +267,11 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                     </button>
                     <button
                         onClick={handleSubmit}
-                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-sm"
+                        disabled={!hasChanges}
+                        className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${!hasChanges
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-lg shadow-blue-500/20'
+                            }`}
                     >
                         {initialData ? 'Update Branch' : 'Add Branch'}
                     </button>

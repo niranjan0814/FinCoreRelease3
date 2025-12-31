@@ -186,5 +186,24 @@ export const customerService = {
         }
 
         return data;
+    },
+
+    /**
+     * Check if a customer is eligible for center transfer
+     */
+    checkTransferEligibility: async (id: string): Promise<{ eligible: boolean; message?: string }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/customers/${id}/transfer-eligibility`, {
+                headers: getHeaders()
+            });
+            const data = await response.json();
+            return {
+                eligible: response.ok,
+                message: data.message
+            };
+        } catch (error) {
+            console.error("Error checking transfer eligibility", error);
+            return { eligible: false, message: "Could not verify eligibility" };
+        }
     }
 };

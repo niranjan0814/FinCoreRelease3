@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { Group, GroupMember } from '../../types/group.types';
+import { toast } from 'react-toastify';
 
 interface GroupMemberModalProps {
     isOpen: boolean;
@@ -143,7 +144,7 @@ export function GroupMemberModal({ isOpen, onClose, group }: GroupMemberModalPro
                 <div className="p-4 border-t border-gray-200 flex gap-3 justify-end bg-gray-50">
                     <button
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center gap-2"
-                        onClick={() => alert('Add member functionality coming soon!')}
+                        onClick={() => toast.info('Add member functionality coming soon!')}
                     >
                         <UserPlus className="w-4 h-4" />
                         Add Member

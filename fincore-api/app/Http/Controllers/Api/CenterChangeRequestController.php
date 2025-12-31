@@ -74,6 +74,40 @@ class CenterChangeRequestController extends Controller
             ], 400);
         }
 
+        // ===== TRANSFER ELIGIBILITY VALIDATION =====
+        // 1. Check if the customer has active loans
+        $hasActiveLoan = \App\Models\Loan::where('customer_id', $customer->id)
+            ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+            ->exists();
+
+        if ($hasActiveLoan) {
+            return response()->json([
+                'statusCode' => 422,
+                'message' => 'Transfer Denied: Customer has an ongoing active loan. All loans must be completed before transferring.',
+            ], 422);
+        }
+
+        // 2. Check group members' loans if customer is in a group
+        if ($customer->grp_id) {
+            $groupMembers = Customer::where('grp_id', $customer->grp_id)
+                ->where('id', '!=', $customer->id)
+                ->get();
+
+            foreach ($groupMembers as $member) {
+                $memberHasActiveLoan = \App\Models\Loan::where('customer_id', $member->id)
+                    ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+                    ->exists();
+
+                if ($memberHasActiveLoan) {
+                    return response()->json([
+                        'statusCode' => 422,
+                        'message' => "Transfer Denied: Group member '{$member->full_name}' still has an active loan. All members in the solidarity group must finish their loans before any member can transfer.",
+                    ], 422);
+                }
+            }
+        }
+        // ===== END VALIDATION =====
+
         // Check if there is already a pending request for this customer
         $existingRequest = CenterChangeRequest::where('customer_id', $customer->id)
             ->where('status', 'PENDING')
@@ -88,7 +122,7 @@ class CenterChangeRequestController extends Controller
 
         $changeRequest = CenterChangeRequest::create([
             'customer_id' => $customer->id,
-            'current_center_id' => $customer->center_id, // Assuming customer must have a center, or handle null
+            'current_center_id' => $customer->center_id, 
             'requested_center_id' => $request->requested_center_id,
             'reason' => $request->reason,
             'status' => 'PENDING',

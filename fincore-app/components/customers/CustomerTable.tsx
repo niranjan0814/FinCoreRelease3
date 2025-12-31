@@ -7,11 +7,12 @@ interface CustomerTableProps {
     customers: Customer[];
     onEdit: (customer: Customer) => void;
     onDelete: (customerId: string) => void;
+    onStatusChange: (customer: Customer, newStatus: string) => void;
     onViewDetails: (customer: Customer) => void;
     selectedCustomer?: Customer | null;
 }
 
-export function CustomerTable({ customers, onEdit, onDelete, onViewDetails, selectedCustomer }: CustomerTableProps) {
+export function CustomerTable({ customers, onEdit, onDelete, onStatusChange, onViewDetails, selectedCustomer }: CustomerTableProps) {
     return (
         <div>
             <div className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
@@ -103,16 +104,32 @@ export function CustomerTable({ customers, onEdit, onDelete, onViewDetails, sele
                             {/* Actions */}
                             <div className="col-span-1 flex items-center gap-2">
                                 {authService.hasPermission('customers.edit') && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEdit(customer);
-                                        }}
-                                        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                                        title="Edit"
-                                    >
-                                        Edit
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newStatus = customer.status === 'blocked' ? 'active' : 'blocked';
+                                                onStatusChange(customer, newStatus);
+                                            }}
+                                            className={`p-1 rounded transition-colors ${customer.status === 'blocked'
+                                                ? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30'
+                                                : 'text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30'
+                                                }`}
+                                            title={customer.status === 'blocked' ? 'Enable Customer' : 'Disable Customer'}
+                                        >
+                                            <Shield className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEdit(customer);
+                                            }}
+                                            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                            title="Edit"
+                                        >
+                                            Edit
+                                        </button>
+                                    </>
                                 )}
                                 {authService.hasPermission('customers.delete') && (
                                     <button

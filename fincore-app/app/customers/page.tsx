@@ -9,6 +9,7 @@ import { CustomerTable } from '../../components/customers/CustomerTable';
 import { CustomerDetailsModal } from '../../components/customers/CustomerDetailsModal';
 import { CustomerForm } from '../../components/customers/CustomerForm';
 import { CustomerProfilePanel } from '../../components/customers/CustomerProfilePanel';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { toast } from 'react-toastify';
 import { authService } from '../../services/auth.service';
 import { useRouter } from 'next/navigation';
@@ -23,6 +24,15 @@ export default function CustomersPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterGender, setFilterGender] = useState<'All' | 'Male' | 'Female'>('All');
     const [loading, setLoading] = useState(true);
+
+    // Confirmation States
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+    const [pendingAction, setPendingAction] = useState<{
+        customer: Customer | null;
+        newStatus?: string;
+    }>({ customer: null });
+
     const router = useRouter();
 
     const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -121,15 +131,44 @@ export default function CustomersPage() {
         setShowEditModal(true);
     };
 
-    const handleDelete = async (customerId: string) => {
-        if (!confirm('Are you sure you want to delete this customer?')) return;
+    const handleDelete = (customerId: string) => {
+        const customer = customers.find(c => c.id === customerId);
+        setPendingAction({ customer: customer || null });
+        setShowDeleteConfirm(true);
+    };
 
+    const confirmDelete = async () => {
+        if (!pendingAction.customer) return;
         try {
-            await customerService.deleteCustomer(customerId);
+            await customerService.deleteCustomer(pendingAction.customer.id);
             toast.success('Customer deleted successfully');
             loadCustomers();
         } catch (error: any) {
             toast.error(error.message || 'Failed to delete customer');
+        } finally {
+            setShowDeleteConfirm(false);
+            setPendingAction({ customer: null });
+        }
+    };
+
+    const handleStatusChange = (customer: Customer, newStatus: string) => {
+        setPendingAction({ customer, newStatus });
+        setShowStatusConfirm(true);
+    };
+
+    const confirmStatusChange = async () => {
+        if (!pendingAction.customer || !pendingAction.newStatus) return;
+        const { customer, newStatus } = pendingAction;
+
+        try {
+            await customerService.updateCustomer(customer.id, { status: newStatus as any });
+            toast.success(`Customer ${newStatus === 'blocked' ? 'disabled' : 'enabled'} successfully`);
+            loadCustomers();
+        } catch (error: any) {
+            toast.error(error.message || `Failed to update customer status`);
+        } finally {
+            setShowStatusConfirm(false);
+            setPendingAction({ customer: null });
         }
     };
 
@@ -257,6 +296,7 @@ export default function CustomersPage() {
                             customers={filteredCustomers}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onStatusChange={handleStatusChange}
                             onViewDetails={handleViewDetails}
                             selectedCustomer={selectedCustomer}
                         />
@@ -271,6 +311,7 @@ export default function CustomersPage() {
                             onClose={() => setSelectedCustomer(null)}
                             onRequestEdit={handleRequestEdit}
                             onViewFullDetails={handleViewFullDetails}
+                            onStatusChange={handleStatusChange}
                         />
                     </div>
                 )}
@@ -304,6 +345,29 @@ export default function CustomersPage() {
                     initialData={selectedCustomer}
                 />
             )}
+
+            {/* Confirmation Dialogs */}
+            <ConfirmDialog
+                isOpen={showDeleteConfirm}
+                title="Delete Customer Profile"
+                message={`Are you sure you want to permanently delete ${pendingAction.customer?.full_name}'s profile? This action cannot be undone.`}
+                confirmText="Permanently Delete"
+                cancelText="Cancel"
+                variant="danger"
+                onConfirm={confirmDelete}
+                onCancel={() => setShowDeleteConfirm(false)}
+            />
+
+            <ConfirmDialog
+                isOpen={showStatusConfirm}
+                title={pendingAction.newStatus === 'blocked' ? 'Disable Customer' : 'Activate Customer'}
+                message={`Are you sure you want to ${pendingAction.newStatus === 'blocked' ? 'disable' : 'enable'} ${pendingAction.customer?.full_name}? ${pendingAction.newStatus === 'blocked' ? 'They will no longer be eligible for new transactions.' : 'They will be able to perform transactions again.'}`}
+                confirmText={pendingAction.newStatus === 'blocked' ? 'Yes, Disable' : 'Yes, Activate'}
+                cancelText="Cancel"
+                variant={pendingAction.newStatus === 'blocked' ? 'warning' : 'info'}
+                onConfirm={confirmStatusChange}
+                onCancel={() => setShowStatusConfirm(false)}
+            />
         </div>
     );
 }

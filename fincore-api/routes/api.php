@@ -137,6 +137,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/', [\App\Http\Controllers\Api\CustomerController::class, 'store'])->middleware('permission:customers.create');
         Route::get('/constants', [\App\Http\Controllers\Api\CustomerController::class, 'getConstants']); // Public for authenticated users
         Route::get('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'show'])->middleware('permission:customers.view');
+        Route::get('/{id}/transfer-eligibility', [\App\Http\Controllers\Api\CustomerController::class, 'checkTransferEligibility'])->middleware('permission:customers.view');
         Route::put('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'update'])->middleware('permission:customers.edit');
         Route::delete('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'destroy'])->middleware('permission:customers.delete');
     });

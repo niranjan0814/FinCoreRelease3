@@ -531,6 +531,58 @@ class CustomerController extends Controller
     }
 
     /**
+     * Check if a customer is eligible for a center transfer.
+     */
+    public function checkTransferEligibility($id)
+    {
+        $customer = Customer::find($id);
+
+        if (!$customer) {
+            return response()->json([
+                'statusCode' => 404,
+                'message' => 'Customer not found'
+            ], 404);
+        }
+
+        // 1. Check if the customer has active loans
+        $hasActiveLoan = \App\Models\Loan::where('customer_id', $customer->id)
+            ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+            ->exists();
+
+        if ($hasActiveLoan) {
+            return response()->json([
+                'eligible' => false,
+                'message' => 'Customer has an ongoing active loan. All individual loans must be finished before transferring.'
+            ], 422);
+        }
+
+        // 2. Check group members' loans if customer is in a group
+        if ($customer->grp_id) {
+            $groupMembers = Customer::where('grp_id', $customer->grp_id)
+                ->where('id', '!=', $customer->id)
+                ->get();
+
+            foreach ($groupMembers as $member) {
+                $memberHasActiveLoan = \App\Models\Loan::where('customer_id', $member->id)
+                    ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+                    ->exists();
+
+                if ($memberHasActiveLoan) {
+                    return response()->json([
+                        'eligible' => false,
+                        'message' => "Group member '{$member->full_name}' still has an active loan. Solidarity group rules require all 2 other members to finish their loans before any member can transfer."
+                    ], 422);
+                }
+            }
+        }
+
+        return response()->json([
+            'eligible' => true,
+            'message' => 'Customer is eligible for center transfer.'
+        ], 200);
+    }
+
+    /**
      * Extract gender from Sri Lankan NIC
      * Old format: 9 digits + V (e.g., 856234567V)
      * New format: 12 digits (e.g., 198562345678)

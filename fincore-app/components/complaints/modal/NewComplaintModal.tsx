@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ComplaintFormData } from '@/types/complaint.types';
 import { branchService } from '@/services/branch.service';
 import { staffService } from '@/services/staff.service';
+import { toast } from 'react-toastify';
 
 interface NewComplaintModalProps {
     onClose: () => void;
@@ -49,7 +50,7 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({ onClose, o
 
     const handleSubmit = () => {
         if (!formData.complainant.trim() || !formData.subject.trim() || !formData.description.trim() || !formData.branch || !formData.category) {
-            alert('Please fill in all required fields');
+            toast.warning('Please fill in all required fields');
             return;
         }
         onSubmit(formData);

@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { LoanApprovalItem, LoanStatus } from '@/types/loan-approval.types';
 import { loanService } from '@/services/loan.service';
+import { toast } from 'react-toastify';
 import {
     Loan,
     LOAN_STATUS_SENT_BACK,
@@ -101,7 +102,7 @@ export function useLoanApproval() {
             setViewingLoan(null);
         } catch (err) {
             console.error('Approval failed:', err);
-            alert('Failed to process approval');
+            toast.error('Failed to process approval');
         }
     }, [fetchLoans]);
 
@@ -113,7 +114,7 @@ export function useLoanApproval() {
             setViewingLoan(null);
         } catch (err) {
             console.error('Approval failed:', err);
-            alert('Failed to process approval');
+            toast.error('Failed to process approval');
         }
     }, [fetchLoans]);
 

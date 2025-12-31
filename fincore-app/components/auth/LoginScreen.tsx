@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Clock, AlertCircle, Eye, EyeOff, Shield, Users, TrendingUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface LoginScreenProps {
     onLogin: (username: string, password: string) => Promise<void>;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
+    const router = useRouter();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -202,7 +204,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                                         <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                                         <span className="text-gray-600 font-medium">Remember me</span>
                                     </label>
-                                    <button type="button" className="text-blue-600 hover:text-blue-700 font-semibold">
+                                    <button
+                                        type="button"
+                                        onClick={() => router.push('/forgot-password')}
+                                        className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                                    >
                                         Forgot password?
                                     </button>
                                 </div>

@@ -9,6 +9,7 @@ import { loanService } from '@/services/loan.service';
 import { ProgressSteps } from './shared/ProgressSteps';
 import { StepNavigation } from './shared/StepNavigation';
 import { DraftModal } from './shared/DraftModal';
+import { toast } from 'react-toastify';
 import { CustomerSelection } from './steps/CustomerSelection';
 import { LoanDetails } from './steps/LoanDetails';
 import { DocumentUpload } from './steps/DocumentUpload';
@@ -168,7 +169,7 @@ export function LoanCreation() {
             if (i === 2) error = validateStep2();
 
             if (error) {
-                alert(`Wait! Please complete Step ${i} first: ${error}`);
+                toast.warning(`Wait! Please complete Step ${i} first: ${error}`);
                 setCurrentStep(i);
                 return;
             }
@@ -183,7 +184,7 @@ export function LoanCreation() {
         if (currentStep === 2) error = validateStep2();
 
         if (error) {
-            alert(error);
+            toast.error(error);
             return;
         }
 
@@ -198,15 +199,17 @@ export function LoanCreation() {
         const result = saveDraft();
         if (result.success) {
             setIsDirty(false); // Reset dirty after explicit save
+            toast.success(result.message);
+        } else {
+            toast.info(result.message);
         }
-        alert(result.message);
     }, [saveDraft, setIsDirty]);
 
     const handleLoadDraftClick = useCallback(
         (draftId: string) => {
             const result = loadDraft(draftId);
             if (result.success) {
-                alert(result.message);
+                toast.success(result.message);
             }
         },
         [loadDraft]
@@ -217,7 +220,7 @@ export function LoanCreation() {
             if (confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
                 const result = deleteDraft(draftId);
                 if (result.success) {
-                    alert(result.message);
+                    toast.info(result.message);
                 }
             }
         },
@@ -227,10 +230,10 @@ export function LoanCreation() {
     const handleSubmit = useCallback(async () => {
         // Final sequential validation
         const err1 = validateStep1();
-        if (err1) { alert(`Step 1: ${err1}`); setCurrentStep(1); return; }
+        if (err1) { toast.error(`Step 1: ${err1}`); setCurrentStep(1); return; }
 
         const err2 = validateStep2();
-        if (err2) { alert(`Step 2: ${err2}`); setCurrentStep(2); return; }
+        if (err2) { toast.error(`Step 2: ${err2}`); setCurrentStep(2); return; }
 
         try {
             const payload = {
@@ -261,7 +264,7 @@ export function LoanCreation() {
             setIsSubmitting(true);
             const result = await loanService.createLoan(payload);
             console.log('Loan created:', result);
-            alert('Loan application submitted for approval successfully!');
+            toast.success('Loan application submitted for approval successfully!');
 
             setIsDirty(false);
 
@@ -275,7 +278,7 @@ export function LoanCreation() {
         } catch (error: any) {
             setIsSubmitting(false);
             console.error('Submission failed:', error);
-            alert('Failed to submit loan: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to submit loan: ' + (error.message || 'Unknown error'));
         }
     }, [formData, loadedDraftId, deleteDraft, editId, setIsDirty]);
 

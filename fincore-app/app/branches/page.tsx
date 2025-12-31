@@ -9,7 +9,7 @@ import { BranchTable } from '../../components/branches/BranchTable';
 import { BranchForm } from '../../components/branches/BranchForm';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { colors } from '../../themes/colors';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { authService } from '../../services/auth.service';
 import { useRouter } from 'next/navigation';
@@ -154,13 +154,13 @@ export default function BranchManagementPage() {
                                 const data = await res.json();
                                 if (data.data?.access_token) {
                                     localStorage.setItem('token', data.data.access_token);
-                                    alert('Logged in as Admin! Token saved.');
+                                    toast.success('Logged in as Admin! Token saved.');
                                     loadBranches();
                                 } else {
-                                    alert('Login failed: ' + JSON.stringify(data));
+                                    toast.error('Login failed: ' + JSON.stringify(data));
                                 }
                             } catch (e) {
-                                alert('Login error: ' + e);
+                                toast.error('Login error: ' + e);
                             }
                         }}
                         className="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs"
@@ -226,18 +226,7 @@ export default function BranchManagementPage() {
                 }}
             />
 
-            {/* Toast Container for Notifications */}
-            <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-            />
+            {/* Detail components */}
         </div>
     );
 }

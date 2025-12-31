@@ -7,6 +7,7 @@ import { complaintService } from '@/services/complaint.service';
 import { ComplaintsTable } from './list/ComplaintsTable';
 import { NewComplaintModal } from './modal/NewComplaintModal';
 import { ViewComplaintModal } from './modal/ViewComplaintModal';
+import { toast } from 'react-toastify';
 
 export default function Complaints() {
     const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -56,7 +57,7 @@ export default function Complaints() {
                 setShowModal(false);
             }
         } catch (error) {
-            alert('Failed to create complaint');
+            toast.error('Failed to create complaint');
         }
     };
 

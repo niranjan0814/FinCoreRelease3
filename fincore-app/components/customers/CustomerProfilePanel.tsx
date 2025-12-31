@@ -8,16 +8,19 @@ interface CustomerProfilePanelProps {
     onClose: () => void;
     onRequestEdit: () => void;
     onViewFullDetails: () => void;
+    onStatusChange: (customer: Customer, newStatus: string) => void;
 }
 
-export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewFullDetails }: CustomerProfilePanelProps) {
+export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewFullDetails, onStatusChange }: CustomerProfilePanelProps) {
     const [showTransferModal, setShowTransferModal] = useState(false);
+
+    const isBlocked = customer.status === 'blocked';
 
     return (
         <>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col h-fit">
                 {/* Header */}
-                <div className="bg-blue-600 p-6 relative">
+                <div className={`${isBlocked ? 'bg-red-600' : 'bg-blue-600'} p-6 relative transition-colors`}>
                     <button
                         onClick={onClose}
                         className="absolute right-4 top-4 text-white/70 hover:text-white transition-colors"
@@ -31,8 +34,15 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                         </div>
 
                         <div>
-                            <h2 className="text-xl font-bold text-white">{customer.full_name}</h2>
-                            <p className="text-blue-100 text-sm mt-0.5">{customer.customer_code}</p>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-bold text-white">{customer.full_name}</h2>
+                                {isBlocked && (
+                                    <span className="bg-white/20 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded backdrop-blur-sm">
+                                        Blocked
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-white/80 text-sm mt-0.5">{customer.customer_code}</p>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -111,6 +121,17 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                     {/* Actions */}
                     <div className="flex flex-col gap-3 mt-2">
                         <button
+                            onClick={() => onStatusChange(customer, isBlocked ? 'active' : 'blocked')}
+                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg ${isBlocked
+                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-500/20'
+                                : 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30'
+                                }`}
+                        >
+                            <ShieldAlert className="w-4 h-4" />
+                            {isBlocked ? 'Activate Customer' : 'Disable Customer'}
+                        </button>
+
+                        <button
                             onClick={onRequestEdit}
                             className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
                         >
@@ -141,8 +162,7 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                     customer={customer}
                     onClose={() => setShowTransferModal(false)}
                     onSuccess={() => {
-                        // Ideally refresh parent data, but for now just close
-                        // In a real app we might want to callback to refresh the list
+                        // Ideally refresh parent data
                     }}
                 />
             )}

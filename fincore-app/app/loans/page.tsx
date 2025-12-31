@@ -147,8 +147,7 @@ export default function LoanListPage() {
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
                     >
                         <option value="All">All Portfolio</option>
-                        <option value="Active">Active</option>
-                        <option value="Completed">Completed</option>
+                        <option value="approved">Approved</option>
                         <option value="Defaulted">Defaulted</option>
                         <option value="sent_back">Sent Back / Rejected</option>
                     </select>

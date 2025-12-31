@@ -62,9 +62,9 @@ class InvestmentProductController extends Controller
     {
         try {
             $validated = $request->validate([
-                'name' => 'required|string|max:255|unique:investment_products,name',
+                'name' => 'required|string|max:100|unique:investment_products,name',
                 'interest_rate' => 'required|numeric|min:0|max:100',
-                'age_limited' => 'nullable|integer|min:18|max:100',
+                'age_limited' => 'nullable|integer',
             ]);
 
             $investmentProduct = InvestmentProduct::create($validated);
@@ -139,7 +139,7 @@ class InvestmentProductController extends Controller
                     Rule::unique('investment_products', 'name')->ignore($investmentProduct->id)
                 ],
                 'interest_rate' => 'sometimes|required|numeric|min:0|max:100',
-                'age_limited' => 'nullable|integer|min:18|max:100',
+                'age_limited' => 'nullable|integer',
             ]);
 
             $investmentProduct->update($validated);
