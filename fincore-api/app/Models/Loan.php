@@ -185,6 +185,8 @@ class Loan extends Model
 
     public function latestPayment()
     {
-        return $this->hasOne(CustomerLoanPayment::class, 'loan_id')->latestOfMany();
+        return $this->hasOne(CustomerLoanPayment::class, 'loan_id')
+            ->where('status', '!=', 'cancelled')
+            ->latestOfMany();
     }
 }

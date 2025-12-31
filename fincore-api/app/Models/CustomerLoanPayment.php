@@ -29,6 +29,7 @@ class CustomerLoanPayment extends Model
         'suspense_generated',
         'suspense_used',
         'arrears_age',
+        'status',
     ];
 
     protected $casts = [

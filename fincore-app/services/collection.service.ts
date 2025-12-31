@@ -76,5 +76,62 @@ export const collectionService = {
         }
 
         return result.data;
+    },
+
+    /**
+     * Request cancellation of a receipt
+     */
+    requestReceiptCancellation: async (id: number, reason: string) => {
+        const response = await fetch(`${API_BASE_URL}/receipts/${id}/cancel-request`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ reason })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to request cancellation');
+        return result.data;
+    },
+
+    /**
+     * Approve cancellation of a receipt
+     */
+    approveReceiptCancellation: async (id: number) => {
+        const response = await fetch(`${API_BASE_URL}/receipts/${id}/approve-cancel`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to approve cancellation');
+        return result.data;
+    },
+
+    /**
+     * Reject cancellation of a receipt
+     */
+    rejectReceiptCancellation: async (id: number) => {
+        const response = await fetch(`${API_BASE_URL}/receipts/${id}/reject-cancel`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to reject cancellation');
+        return result.data;
+    },
+
+    /**
+     * Get all pending cancellation requests
+     */
+    getPendingCancellations: async (): Promise<any[]> => {
+        const response = await fetch(`${API_BASE_URL}/receipts/pending-cancellations`, {
+            method: 'GET',
+            headers: getHeaders()
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to fetch pending cancellations');
+        return result.data;
     }
 };

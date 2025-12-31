@@ -254,10 +254,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Receipts
         Route::prefix('receipts')->group(function () {
+            Route::get('/pending-cancellations', [App\Http\Controllers\Api\ReceiptController::class, 'pendingCancellations']);
             Route::post('/', [App\Http\Controllers\Api\ReceiptController::class, 'store']);
             Route::get('/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show']);
             Route::post('/{id}/cancel-request', [App\Http\Controllers\Api\ReceiptController::class, 'requestCancellation']);
             Route::post('/{id}/approve-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'approveCancellation']);
+            Route::post('/{id}/reject-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'rejectCancellation']);
         });
 
         // Complaints
