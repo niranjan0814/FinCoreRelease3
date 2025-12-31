@@ -174,18 +174,25 @@ export const customerService = {
     /**
      * Export customers to CSV
      */
-    exportCustomers: async (): Promise<any> => {
+    exportCustomers: async (): Promise<void> => {
         const response = await fetch(`${API_BASE_URL}/customers/export`, {
             headers: getHeaders()
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
             throw new Error(data.message || 'Failed to export customers');
         }
 
-        return data;
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `customers_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     },
 
     /**

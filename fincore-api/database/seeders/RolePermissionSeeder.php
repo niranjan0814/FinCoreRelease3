@@ -105,6 +105,8 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'loans.create', 'display_name' => 'Create Loans', 'module' => 'loans', 'permission_group_id' => 4],
                 ['name' => 'loans.edit', 'display_name' => 'Edit Loans', 'module' => 'loans', 'permission_group_id' => 4],
                 ['name' => 'loans.delete', 'display_name' => 'Delete Loans', 'module' => 'loans', 'permission_group_id' => 4],
+                ['name' => 'loans.import', 'display_name' => 'Import Loans', 'module' => 'loans', 'permission_group_id' => 4],
+                ['name' => 'loans.export', 'display_name' => 'Export Loans', 'module' => 'loans', 'permission_group_id' => 4],
 
                 // Loan Products
                 ['name' => 'loan_products.view', 'display_name' => 'View Loan Products', 'module' => 'loan_products', 'permission_group_id' => 4],
@@ -242,9 +244,10 @@ class RolePermissionSeeder extends Seeder
                 'permissions.delete',
                 'permissions.view',
                 'centers.view',
-                // 'centers.create',
-                // 'centers.edit',
-                // 'centers.delete',
+                'customers.import',
+                'customers.export',
+                'loans.import',
+                'loans.export',
                 'customers.approve_transfer',
             ])->get();
             if ($superAdminRole) {
@@ -297,8 +300,12 @@ class RolePermissionSeeder extends Seeder
                 'centers.view',
                 'centers.create',
                 'centers.edit',
+                'customers.import',
+                'customers.export',
+                'loans.import',
+                'loans.export',
+                'customers.approve_transfer',
                 
-                'customers.approve_transfer',                
             ])->get();
              if ($adminRole) {
                 $adminRole->syncPermissions($adminPermissions);

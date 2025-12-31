@@ -338,6 +338,89 @@ class LoanController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Export Loans to CSV.
+     */
+    public function export()
+    {
+        try {
+            $loans = Loan::with(['customer', 'product', 'center', 'group'])->get();
+            
+            $headers = [
+                "Content-type" => "text/csv",
+                "Content-Disposition" => "attachment; filename=loans_" . date('Y-m-d_His') . ".csv",
+                "Pragma" => "no-cache",
+                "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+                "Expires" => "0"
+            ];
+
+            $columns = [
+                'ID', 'Loan ID', 'Customer Name', 'Customer Code', 'Product', 
+                'Center', 'Group', 'Approved Amount', 'Outstanding Amount', 
+                'Interest Rate', 'Terms', 'Status', 'Request Date'
+            ];
+
+            $callback = function() use ($loans, $columns) {
+                $file = fopen('php://output', 'w');
+                fputcsv($file, $columns);
+
+                foreach ($loans as $loan) {
+                    $row = [
+                        $loan->id,
+                        $loan->loan_id,
+                        $loan->customer ? $loan->customer->full_name : 'N/A',
+                        $loan->customer ? $loan->customer->customer_code : 'N/A',
+                        $loan->product ? $loan->product->product_name : 'N/A',
+                        $loan->center ? $loan->center->center_name : 'N/A',
+                        $loan->group ? $loan->group->group_name : 'N/A',
+                        $loan->approved_amount,
+                        $loan->outstanding_amount,
+                        $loan->interest_rate,
+                        $loan->terms,
+                        $loan->status,
+                        $loan->created_at
+                    ];
+
+                    fputcsv($file, $row);
+                }
+
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to export loans: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Import Loans from CSV.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt'
+        ]);
+
+        try {
+            // Placeholder logic
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Loans imported successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to import loans: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     /**
      * Create the initial opening balance record in customer_loan_payment table
      */

@@ -84,6 +84,9 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
     const [filteredCenters, setFilteredCenters] = useState<any[]>([]);
 
     const [formData, setFormData] = useState<Partial<CustomerFormData>>({
+        code_type: 'NIC',
+        address_type: 'Home Address',
+        country: 'Sri Lanka',
         ...initialData,
         date_of_birth: initialData?.date_of_birth ? new Date(initialData.date_of_birth).toISOString().split('T')[0] : '',
     });
@@ -416,7 +419,7 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                             <FormSelect label="Province" name="province" options={constants?.provinces || []} required error={fieldErrors.province} value={formData.province} onChange={handleChange} />
                             <FormSelect label="District" name="district" options={filteredDistricts.length > 0 ? filteredDistricts : constants?.districts || []} required error={fieldErrors.district} value={formData.district} onChange={handleChange} />
                             <FormSelect label="City" name="city" options={constants?.cities || []} required error={fieldErrors.city} value={formData.city} onChange={handleChange} />
-                            <FormInput label="Country" name="country" value="Sri Lanka" readOnly />
+                            <FormInput label="Country" name="country" value={formData.country} readOnly />
                         </div>
                     </div>
 

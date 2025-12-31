@@ -519,17 +519,156 @@ class CustomerController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt'
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls,ods'
         ]);
 
         try {
-            // Logic to handle import (placeholder for now)
-            // $file = $request->file('file');
-            // ... parse and create ...
+            $file = $request->file('file');
+            $handle = fopen($file->getRealPath(), 'r');
+            
+            // Handle BOM (Byte Order Mark) fix for Excel created CSVs
+            $bom = fread($handle, 3);
+            if ($bom != "\xEF\xBB\xBF") {
+                rewind($handle);
+            }
+            
+            $headers = fgetcsv($handle);
+            
+            if (!$headers) {
+                return response()->json([
+                    'statusCode' => 4000,
+                    'message' => 'The uploaded CSV file is empty or invalid.'
+                ], 400);
+            }
+
+            // Normalize headers: lowercase, trim, and replace separators with underscores
+            $headers = array_map(function($h) {
+                $h = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h); // Remove invisible chars
+                return trim(strtolower(str_replace([' ', '-', '/'], '_', $h)));
+            }, $headers);
+
+            $importCount = 0;
+            $errorCount = 0;
+            $errors = [];
+
+            while (($row = fgetcsv($handle)) !== false) {
+                // Skip empty rows
+                if (empty(array_filter($row))) continue;
+                
+                // Ensure row has same column count as headers
+                // Pad with null if row is shorter
+                if (count($row) < count($headers)) {
+                    $row = array_pad($row, count($headers), null);
+                } else if (count($row) > count($headers)) {
+                    $row = array_slice($row, 0, count($headers));
+                }
+
+                $data = array_combine($headers, $row);
+                
+                try {
+                    // Start building customer data with defaults
+                    // We explicitly DO NOT map 'id' from the CSV to the database
+                    $customerData = [
+                        'code_type' => 'NIC',
+                        'customer_code' => $data['customer_code'] ?? $data['nic'] ?? null,
+                        'full_name' => $data['full_name'] ?? null,
+                        'gender' => $data['gender'] ?? 'Female',
+                        'title' => $data['title'] ?? 'Mrs',
+                        'mobile_no_1' => $data['mobile_1'] ?? $data['mobile_no_1'] ?? $data['mobile_1_'] ?? null,
+                        'mobile_no_2' => $data['mobile_2'] ?? $data['mobile_no_2'] ?? null,
+                        'date_of_birth' => isset($data['date_of_birth']) ? date('Y-m-d', strtotime($data['date_of_birth'])) : null,
+                        'monthly_income' => $data['monthly_income'] ?? 0,
+                        'status' => $data['status'] ?? 'active',
+                        'address_type' => 'Home Address',
+                        'address_line_1' => $data['address'] ?? $data['address_line_1'] ?? 'N/A',
+                        'country' => 'Sri Lanka',
+                        'civil_status' => $data['civil_status'] ?? 'Married',
+                        'religion' => $data['religion'] ?? 'Buddhism',
+                        'province' => $data['province'] ?? 'Western',
+                        'district' => $data['district'] ?? 'Colombo',
+                        'city' => $data['city'] ?? $data['district'] ?? 'Colombo',
+                        'gs_division' => $data['gs_division'] ?? 'N/A',
+                        'initials' => 'N/A', 
+                        'first_name' => 'N/A',
+                        'last_name' => 'N/A',
+                    ];
+
+                    // Smart split of full name if possible
+                    if ($customerData['full_name']) {
+                        $nameParts = explode(' ', $customerData['full_name']);
+                        $customerData['first_name'] = $nameParts[0];
+                        $customerData['last_name'] = end($nameParts);
+                    }
+
+                    // Branch lookup (Try ID, Code, then Name)
+                    if (isset($data['branch']) && !empty($data['branch'])) {
+                        $val = trim($data['branch']);
+                        \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Branch for '$val'");
+                        
+                        $branch = \App\Models\Branch::where('id', $val)
+                            ->orWhere('branch_id', $val) // String code in DB
+                            ->orWhere('branch_name', 'like', '%' . $val . '%')
+                            ->first();
+
+                        if ($branch) {
+                            $customerData['branch_id'] = $branch->id;
+                             \Illuminate\Support\Facades\Log::info("Row $importCount: Found Branch ID {$branch->id}");
+                        } else {
+                            \Illuminate\Support\Facades\Log::error("Row $importCount: Branch not found for '$val'");
+                            throw new \Exception("Could not find Branch matching '$val'");
+                        }
+                    } else {
+                         \Illuminate\Support\Facades\Log::error("Row $importCount: Branch column missing or empty");
+                    }
+
+                    // Center lookup (Try ID, Code, then Name)
+                    if (isset($data['center']) && !empty($data['center'])) {
+                        $val = trim($data['center']);
+                         \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Center for '$val'");
+                         
+                        $center = \App\Models\Center::where('id', $val)
+                            ->orWhere('CSU_id', $val) // String code in DB
+                            ->orWhere('center_name', 'like', '%' . $val . '%')
+                            ->first();
+                        
+                        if ($center) {
+                            $customerData['center_id'] = $center->id;
+                             \Illuminate\Support\Facades\Log::info("Row $importCount: Found Center ID {$center->id}");
+                        } else {
+                             \Illuminate\Support\Facades\Log::error("Row $importCount: Center not found for '$val'");
+                            throw new \Exception("Could not find Center matching '$val'");
+                        }
+                    } else {
+                         \Illuminate\Support\Facades\Log::error("Row $importCount: Center column missing or empty");
+                    }
+
+                    // Validate minimal requirements
+                    if (!$customerData['customer_code'] || !$customerData['full_name'] || !isset($customerData['branch_id']) || !isset($customerData['center_id'])) {
+                        throw new \Exception("Missing required fields (NIC, Name, Branch or Center)");
+                    }
+
+                    // Check for existing NIC
+                    if (\App\Models\Customer::where('customer_code', $customerData['customer_code'])->exists()) {
+                        throw new \Exception("Customer with NIC " . $customerData['customer_code'] . " already exists");
+                    }
+
+                    \App\Models\Customer::create($customerData);
+                    $importCount++;
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    $errors[] = "Row " . ($importCount + $errorCount + 1) . ": " . $e->getMessage();
+                }
+            }
+            fclose($handle);
 
             return response()->json([
                 'statusCode' => 2000,
-                'message' => 'Customers imported successfully'
+                'message' => "Import completed: $importCount imported, $errorCount failed.",
+                'data' => [
+                    'imported' => $importCount,
+                    'failed' => $errorCount,
+                    'errors' => array_slice($errors, 0, 10) 
+                ]
             ], 200);
 
         } catch (\Exception $e) {
@@ -543,17 +682,67 @@ class CustomerController extends Controller
     /**
      * Export Customers to CSV.
      */
+    /**
+     * Export Customers to CSV.
+     */
     public function export()
     {
         try {
-            // Logic to handle export (placeholder for now)
-            // In a real scenario, we might generate a file and return a download URL
-            // or return the CSV stream. Given the JSON format requirement, we just confirm success.
+            $customers = Customer::with(['branch', 'center', 'group'])->get();
             
-            return response()->json([
-                'statusCode' => 2000,
-                'message' => 'Customers exported successfully'
-            ], 200);
+            $headers = [
+                "Content-type" => "text/csv",
+                "Content-Disposition" => "attachment; filename=customers_" . date('Y-m-d_His') . ".csv",
+                "Pragma" => "no-cache",
+                "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+                "Expires" => "0"
+            ];
+
+            // These headers match the 'import' expectation
+            $columns = [
+                'ID', 'Customer Code', 'Full Name', 'NIC', 'Mobile 1', 'Mobile 2', 
+                'Gender', 'Title', 'Date of Birth', 'Address', 'City', 'District', 
+                'Branch', 'Center', 'Group', 'Status', 'Monthly Income'
+            ];
+
+            $callback = function() use ($customers, $columns) {
+                $file = fopen('php://output', 'w');
+                fputcsv($file, $columns);
+
+                foreach ($customers as $customer) {
+                    // Use CODES (e.g. branch_id b01) instead of Names for better re-import reliability
+                    // Fallback to name if code is missing
+                    $branchVal = $customer->branch ? ($customer->branch->branch_id ?? $customer->branch->branch_name) : '';
+                    $centerVal = $customer->center ? ($customer->center->CSU_id ?? $customer->center->center_name) : '';
+                    $groupVal = $customer->group ? ($customer->group->group_code ?? $customer->group->group_name) : '';
+
+                    $row = [
+                        $customer->id,
+                        $customer->customer_code,
+                        $customer->full_name,
+                        $customer->customer_code, // NIC column
+                        $customer->mobile_no_1,
+                        $customer->mobile_no_2,
+                        $customer->gender,
+                        $customer->title,
+                        $customer->date_of_birth,
+                        $customer->address_line_1 . ($customer->address_line_2 ? ', ' . $customer->address_line_2 : ''),
+                        $customer->city,
+                        $customer->district,
+                        $branchVal, // Exporting Code (b01) preferred
+                        $centerVal, // Exporting Code (CSU_id) preferred
+                        $groupVal,
+                        $customer->status,
+                        $customer->monthly_income
+                    ];
+
+                    fputcsv($file, $row);
+                }
+
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
 
         } catch (\Exception $e) {
             return response()->json([

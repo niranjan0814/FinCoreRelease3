@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
 import { CollectionStats } from './CollectionStats';
 import { CollectionFilters } from './CollectionFilters';
 import { ScheduledPaymentsTable } from './ScheduledPaymentsTable';
@@ -174,6 +175,20 @@ export function CollectionScreen() {
         setReceiptData(null);
     };
 
+    const handleExportSummary = async () => {
+        if (!selectedBranch) return;
+        try {
+            await collectionService.exportCollections(
+                selectedBranch,
+                selectedCenter || undefined,
+                selectedDate
+            );
+            toast.success('Collection summary exported successfully');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to export collection summary');
+        }
+    };
+
     const getCenterName = () => {
         if (!selectedCenter) {
             const branch = branches.find(b => String(b.id) === selectedBranch);
@@ -186,9 +201,20 @@ export function CollectionScreen() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Collection Screen</h1>
-                <p className="text-sm text-gray-500 mt-1">Collect payments and generate receipts</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Collection Screen</h1>
+                    <p className="text-sm text-gray-500 mt-1">Collect payments and generate receipts</p>
+                </div>
+                {selectedBranch && (
+                    <button
+                        onClick={handleExportSummary}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span className="text-sm font-medium">Export Summary</span>
+                    </button>
+                )}
             </div>
 
             {/* Filter Section */}

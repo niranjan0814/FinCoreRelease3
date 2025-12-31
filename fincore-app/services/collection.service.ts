@@ -76,5 +76,39 @@ export const collectionService = {
         }
 
         return result.data;
+    },
+
+    /**
+     * Export Collection Summary to CSV
+     */
+    exportCollections: async (branchId: string, csuId?: string, date?: string): Promise<void> => {
+        const url = new URL(`${API_BASE_URL}/collections/export`);
+        url.searchParams.append('branch_id', branchId);
+        if (csuId) {
+            url.searchParams.append('CSU_id', csuId);
+        }
+        if (date) {
+            url.searchParams.append('date', date);
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || 'Failed to export collections');
+        }
+
+        const blob = await response.blob();
+        const exportUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = exportUrl;
+        a.download = `collection_summary_${date || new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(exportUrl);
+        document.body.removeChild(a);
     }
 };

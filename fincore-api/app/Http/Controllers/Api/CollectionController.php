@@ -336,4 +336,86 @@ class CollectionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Export Collection Summary to CSV.
+     */
+    public function export(Request $request)
+    {
+        try {
+            $request->validate([
+                'branch_id' => 'required|exists:branches,id',
+                'CSU_id' => 'nullable|exists:centers,id',
+                'date' => 'nullable|date',
+            ]);
+
+            $branchId = $request->branch_id;
+            $csuId = $request->CSU_id;
+            $date = $request->date ?? now()->format('Y-m-d');
+
+            $loansQuery = Loan::with(['customer', 'group', 'center', 'latestPayment'])
+                ->where('status', Loan::STATUS_ACTIVE)
+                ->whereHas('center', function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId);
+                });
+
+            if ($csuId) {
+                $loansQuery->where('CSU_id', $csuId);
+            }
+
+            $loans = $loansQuery->get();
+
+            $headers = [
+                "Content-type" => "text/csv",
+                "Content-Disposition" => "attachment; filename=collection_summary_" . $date . ".csv",
+                "Pragma" => "no-cache",
+                "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+                "Expires" => "0"
+            ];
+
+            $columns = [
+                'Contract No', 'Customer Name', 'Group', 'Center', 
+                'Due Amount', 'Standard Rental', 'Arrears', 'Suspense Balance', 'Outstanding'
+            ];
+
+            $callback = function() use ($loans, $columns, $date) {
+                $file = fopen('php://output', 'w');
+                fputcsv($file, $columns);
+
+                foreach ($loans as $loan) {
+                    $latestPayment = $loan->latestPayment;
+                    $rental = $loan->rentel ?? 0;
+                    $arrears = $latestPayment ? (float) $latestPayment->arrears : $this->calculateArrears($loan, null, $date);
+                    $currentSuspense = (float) $loan->suspense_balance;
+                    $rentalDue = $latestPayment ? ($latestPayment->total_due > 0 ? $latestPayment->total_due : $rental) : $rental;
+                    $rawDue = $rentalDue + $arrears;
+                    $adjustedDue = max(0, $rawDue - $currentSuspense);
+
+                    $row = [
+                        $loan->loan_id,
+                        $loan->customer ? $loan->customer->full_name : 'Unknown',
+                        $loan->group ? $loan->group->group_name : '-',
+                        $loan->center ? $loan->center->center_name : '-',
+                        $adjustedDue,
+                        $rentalDue,
+                        $arrears,
+                        $currentSuspense,
+                        $loan->outstanding_amount
+                    ];
+
+                    fputcsv($file, $row);
+                }
+
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export collection summary: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

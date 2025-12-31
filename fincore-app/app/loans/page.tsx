@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download, Plus, Upload } from 'lucide-react';
 import { Loan, LoanStats as LoanStatsType } from '@/types/loan.types';
 import { loanService } from '@/services/loan.service';
+import { authService } from '@/services/auth.service';
 import { LoanStats } from '@/components/loan/list/LoanStats';
 import { LoanTable } from '@/components/loan/list/LoanTable';
 import { LoanDetailModal } from '@/components/loan/list/LoanDetailModal';
@@ -28,6 +29,7 @@ export default function LoanListPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+    const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -64,39 +66,35 @@ export default function LoanListPage() {
         return () => clearTimeout(timer);
     }, [fetchLoans]);
 
-    const handleExport = () => {
-        if (loans.length === 0) {
-            toast.info('No data to export');
+    const handleExport = async () => {
+        try {
+            await loanService.exportLoans();
+            toast.success('Loans exported successfully');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to export loans');
+        }
+    };
+
+    const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.csv')) {
+            toast.error('Please upload a valid CSV file');
             return;
         }
 
-        const headers = [
-            'ID', 'Loan ID', 'Customer', 'Customer ID', 'Amount', 'Outstanding',
-            'Interest Rate', 'Terms', 'Status', 'Start Date', 'End Date'
-        ];
-
-        const rows = loans.map(loan => [
-            loan.id,
-            loan.loan_id,
-            loan.customer?.full_name || 'N/A',
-            loan.customer?.customer_code || 'N/A',
-            loan.approved_amount,
-            loan.outstanding_amount,
-            loan.interest_rate,
-            loan.terms,
-            loan.status,
-            loan.agreement_date,
-            loan.end_term
-        ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
-
-        const csvContent = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `loans_export_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        setImporting(true);
+        try {
+            await loanService.importLoans(file);
+            toast.success('Loans imported successfully');
+            fetchLoans();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to import loans');
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     return (
@@ -108,13 +106,32 @@ export default function LoanListPage() {
                     <p className="text-sm text-gray-500 mt-1">View and manage all loan accounts</p>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <button
-                        onClick={handleExport}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-all shadow-sm font-medium text-sm"
-                    >
-                        <Download className="w-4 h-4 text-gray-500" />
-                        <span>Export CSV</span>
-                    </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImport}
+                        accept=".csv"
+                        className="hidden"
+                    />
+                    {authService.hasPermission('loans.view') && (
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={importing}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-all shadow-sm font-medium text-sm disabled:opacity-50"
+                        >
+                            <Upload className="w-4 h-4 text-gray-500" />
+                            <span>{importing ? 'Importing...' : 'Import CSV'}</span>
+                        </button>
+                    )}
+                    {authService.hasPermission('loans.view') && (
+                        <button
+                            onClick={handleExport}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-all shadow-sm font-medium text-sm"
+                        >
+                            <Download className="w-4 h-4 text-gray-500" />
+                            <span>Export CSV</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

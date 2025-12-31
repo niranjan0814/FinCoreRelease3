@@ -66,6 +66,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // Loans
+    Route::get('/loans/export', [LoanController::class, 'export'])->name('loans.export');
+    Route::post('/loans/import', [LoanController::class, 'import'])->name('loans.import');
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/{id}', [LoanController::class, 'show'])->name('loans.show');
@@ -137,6 +139,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\CustomerController::class, 'index'])->middleware('permission:customers.view');
         Route::post('/', [\App\Http\Controllers\Api\CustomerController::class, 'store'])->middleware('permission:customers.create');
         Route::get('/constants', [\App\Http\Controllers\Api\CustomerController::class, 'getConstants']); // Public for authenticated users
+        Route::get('/export', [\App\Http\Controllers\Api\CustomerController::class, 'export'])->middleware('permission:customers.export');
+        Route::post('/import', [\App\Http\Controllers\Api\CustomerController::class, 'import'])->middleware('permission:customers.import');
         Route::get('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'show'])->middleware('permission:customers.view');
         Route::get('/{id}/transfer-eligibility', [\App\Http\Controllers\Api\CustomerController::class, 'checkTransferEligibility'])->middleware('permission:customers.view');
         Route::put('/{id}', [\App\Http\Controllers\Api\CustomerController::class, 'update'])->middleware('permission:customers.edit');
@@ -245,11 +249,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/', [CustomerController::class, 'index'])->middleware('permission:customers.view');
             Route::post('/', [CustomerController::class, 'store'])->middleware('permission:customers.create');
             Route::get('/constants', [CustomerController::class, 'getConstants']); 
+            Route::get('/export', [CustomerController::class, 'export'])->middleware('permission:customers.export');
+            Route::post('/import', [CustomerController::class, 'import'])->middleware('permission:customers.import');
             Route::get('/{id}', [CustomerController::class, 'show'])->middleware('permission:customers.view');
             Route::put('/{id}', [CustomerController::class, 'update'])->middleware('permission:customers.edit');
             Route::delete('/{id}', [CustomerController::class, 'destroy'])->middleware('permission:customers.delete');
-            Route::post('/import', [CustomerController::class, 'import'])->middleware('permission:customers.import');
-            Route::get('/export', [CustomerController::class, 'export'])->middleware('permission:customers.export');
         });
 
         // Receipts
@@ -264,9 +268,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('complaints', App\Http\Controllers\Api\ComplaintController::class);
 
         // Collections
-        Route::get('/collections/due', [App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
-        Route::post('/collections/collect', [App\Http\Controllers\Api\CollectionController::class, 'collectPayment'])->middleware('permission:receipts.create');
-        Route::get('/collections/history/{loanId}', [App\Http\Controllers\Api\CollectionController::class, 'getCollectionHistory'])->middleware('permission:collections.view');
+        Route::get('/collections/due', [\App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
+        Route::get('/collections/export', [\App\Http\Controllers\Api\CollectionController::class, 'export'])->middleware('permission:collections.view');
+        Route::post('/collections/collect', [\App\Http\Controllers\Api\CollectionController::class, 'collectPayment'])->middleware('permission:receipts.create');
+        Route::get('/collections/history/{loanId}', [\App\Http\Controllers\Api\CollectionController::class, 'getCollectionHistory'])->middleware('permission:collections.view');
 
         // Center Change Requests
         Route::prefix('center-requests')->group(function () {

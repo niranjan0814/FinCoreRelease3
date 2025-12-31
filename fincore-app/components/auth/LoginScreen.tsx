@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Clock, AlertCircle, Eye, EyeOff, Shield, Users, TrendingUp } from 'lucide-react';
+import { Building2, Clock, AlertCircle, Eye, EyeOff, Shield, Users, TrendingUp, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'react-toastify';
 
 interface LoginScreenProps {
     onLogin: (username: string, password: string) => Promise<void>;
+    initialView?: 'login' | 'forgot-password';
 }
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen({ onLogin, initialView = 'login' }: LoginScreenProps) {
     const router = useRouter();
+    const [view, setView] = useState<'login' | 'forgot-password'>(initialView);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showPassword, setShowPassword] = useState(false);
 
@@ -34,7 +39,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return hour >= loginStartHour && hour < loginEndHour;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -52,10 +57,37 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         try {
             await onLogin(username, password);
-            // Redirect happens in parent or success logic
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Login failed. Please check your credentials.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+
+        if (!email.trim()) {
+            setError('Please enter your email address');
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError('Please enter a valid email address');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // TODO: Implement actual password reset API call
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            setSuccess(true);
+            toast.success('Password reset link sent to your email!');
+        } catch (err: any) {
+            setError(err.message || 'Failed to send reset link. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -119,39 +151,41 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                         </div>
                     </div>
 
-                    {/* Right Side - Login Form */}
+                    {/* Right Side - Forms */}
                     <div className="flex items-center justify-center">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 sm:p-10 border border-gray-100">
-                            {/* Mobile Logo */}
-                            <div className="lg:hidden text-center mb-8">
-                                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl mb-4 shadow-lg shadow-blue-600/30">
-                                    <Building2 className="w-8 h-8 text-white" />
-                                </div>
-                                <h1 className="text-gray-900 mb-2 font-semibold tracking-tight">Welcome Back</h1>
-                                <p className="text-gray-600 font-medium">Sign in to your account</p>
-                            </div>
-
                             {/* Desktop Header */}
-                            <div className="hidden lg:block text-center mb-8">
-                                <h2 className="text-gray-900 mb-2 text-2xl font-semibold tracking-tight">Sign In</h2>
-                                <p className="text-gray-600 font-medium">Enter your credentials to continue</p>
+                            <div className="text-center mb-8">
+                                <h2 className="text-gray-900 mb-2 text-2xl font-semibold tracking-tight">
+                                    {view === 'login' ? 'Sign In' : success ? 'Check Your Email' : 'Forgot Password?'}
+                                </h2>
+                                <p className="text-gray-600 font-medium">
+                                    {view === 'login'
+                                        ? 'Enter your credentials to continue'
+                                        : success
+                                            ? "We've sent you a reset link"
+                                            : 'Enter your email to receive a reset link'
+                                    }
+                                </p>
                             </div>
 
-                            {/* Login Hours Info */}
-                            <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${isWithinLoginHours()
-                                ? 'bg-green-50 border border-green-200'
-                                : 'bg-red-50 border border-red-200'
-                                }`}>
-                                <Clock className={`w-5 h-5 flex-shrink-0 ${isWithinLoginHours() ? 'text-green-600' : 'text-red-600'}`} />
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium ${isWithinLoginHours() ? 'text-green-800' : 'text-red-800'}`}>
-                                        24/7 Access Available
-                                    </p>
-                                    <p className={`text-xs font-medium mt-0.5 ${isWithinLoginHours() ? 'text-green-600' : 'text-red-600'}`}>
-                                        {currentTime.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
+                            {/* Login Hours Info (Only for Login View) */}
+                            {view === 'login' && (
+                                <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${isWithinLoginHours()
+                                    ? 'bg-green-50 border border-green-200'
+                                    : 'bg-red-50 border border-red-200'
+                                    }`}>
+                                    <Clock className={`w-5 h-5 flex-shrink-0 ${isWithinLoginHours() ? 'text-green-600' : 'text-red-600'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-sm font-medium ${isWithinLoginHours() ? 'text-green-800' : 'text-red-800'}`}>
+                                            24/7 Access Available
+                                        </p>
+                                        <p className={`text-xs font-medium mt-0.5 ${isWithinLoginHours() ? 'text-green-600' : 'text-red-600'}`}>
+                                            {currentTime.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Error Message */}
                             {error && (
@@ -161,78 +195,138 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                                 </div>
                             )}
 
-                            {/* Login Form */}
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-medium">Username</label>
-                                    <input
-                                        type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-normal"
-                                        placeholder="Enter your username"
-                                        disabled={loading}
-                                        autoComplete="username"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-medium">Password</label>
-                                    <div className="relative">
+                            {view === 'login' ? (
+                                <form onSubmit={handleLoginSubmit} className="space-y-5">
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-medium">Username</label>
                                         <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-normal"
-                                            placeholder="Enter your password"
+                                            type="text"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-normal"
+                                            placeholder="Enter your username"
                                             disabled={loading}
-                                            autoComplete="current-password"
+                                            autoComplete="username"
                                         />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-medium">Password</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-normal"
+                                                placeholder="Enter your password"
+                                                disabled={loading}
+                                                autoComplete="current-password"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                tabIndex={-1}
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-sm">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                            <span className="text-gray-600 font-medium">Remember me</span>
+                                        </label>
                                         <button
                                             type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                            tabIndex={-1}
+                                            onClick={() => setView('forgot-password')}
+                                            className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
                                         >
-                                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            Forgot password?
                                         </button>
                                     </div>
-                                </div>
 
-                                <div className="flex items-center justify-between text-sm">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                        <span className="text-gray-600 font-medium">Remember me</span>
-                                    </label>
                                     <button
-                                        type="button"
-                                        onClick={() => router.push('/forgot-password')}
-                                        className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                                        type="submit"
+                                        disabled={loading || !isWithinLoginHours()}
+                                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 font-semibold"
                                     >
-                                        Forgot password?
+                                        {loading ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                                Signing in...
+                                            </>
+                                        ) : (
+                                            'Sign In'
+                                        )}
                                     </button>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading || !isWithinLoginHours()}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 font-semibold"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                            Signing in...
-                                        </>
+                                </form>
+                            ) : (
+                                <div className="space-y-6">
+                                    {success ? (
+                                        <div className="space-y-6">
+                                            <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
+                                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="text-sm text-green-800 font-medium mb-1">Reset link sent!</p>
+                                                    <p className="text-xs text-green-600">
+                                                        Check <strong>{email}</strong> for instructions.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setView('login');
+                                                    setSuccess(false);
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-semibold text-gray-700"
+                                            >
+                                                <ArrowLeft className="w-4 h-4" />
+                                                Back to Login
+                                            </button>
+                                        </div>
                                     ) : (
-                                        'Sign In'
+                                        <form onSubmit={handleForgotSubmit} className="space-y-6">
+                                            <div>
+                                                <label className="block text-gray-700 mb-2 font-medium">Email Address</label>
+                                                <div className="relative">
+                                                    <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                                    <input
+                                                        type="email"
+                                                        value={email}
+                                                        onChange={(e) => setEmail(e.target.value)}
+                                                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-normal"
+                                                        placeholder="your.email@example.com"
+                                                        disabled={loading}
+                                                        autoComplete="email"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                disabled={loading}
+                                                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 font-semibold"
+                                            >
+                                                {loading ? 'Sending...' : 'Send Reset Link'}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setView('login')}
+                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-semibold text-gray-700"
+                                            >
+                                                <ArrowLeft className="w-4 h-4" />
+                                                Back to Login
+                                            </button>
+                                        </form>
                                     )}
-                                </button>
-                            </form>
-
-
+                                </div>
+                            )}
 
                             {/* Footer */}
-                            <div className="mt-6 text-center">
+                            <div className="mt-8 text-center">
                                 <p className="text-sm text-gray-500 font-medium">
                                     © 2024 LMS. All rights reserved.
                                 </p>

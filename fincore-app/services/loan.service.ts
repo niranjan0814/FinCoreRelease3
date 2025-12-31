@@ -69,5 +69,53 @@ export const loanService = {
         const json = await response.json();
         if (!response.ok) throw new Error(json.message || 'Failed to approve loan');
         return json.data;
+    },
+
+    /**
+     * Export loans to CSV
+     */
+    exportLoans: async (): Promise<void> => {
+        const response = await fetch(`${API_BASE_URL}/loans/export`, {
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || 'Failed to export loans');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `loans_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    },
+
+    /**
+     * Import loans from CSV
+     */
+    importLoans: async (file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE_URL}/loans/import`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to import loans');
+        }
+
+        return data;
     }
 };
