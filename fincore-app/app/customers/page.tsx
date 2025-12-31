@@ -310,6 +310,7 @@ export default function CustomersPage() {
                             customer={selectedCustomer}
                             onClose={() => setSelectedCustomer(null)}
                             onEdit={handleEdit}
+                            onRequestEdit={handleRequestEdit}
                             onViewFullDetails={handleViewFullDetails}
                             onStatusChange={handleStatusChange}
                         />
