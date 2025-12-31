@@ -84,12 +84,13 @@ class AuthController extends BaseController
                     401
                 );
             }
-
-            // Successful login - reset failed attempts and unlock
+             // Successful login - reset failed attempts and unlock
             $user->update([
                 'failed_login_attempts' => 0,
                 'locked_until' => null, // Clear any time-based lock
             ]);
+            // Successful login - reset failed attempts, unlock, and record timestamp
+            $user->recordLogin($request->ip());
 
             // Create auth token
             $token = $user->createToken('auth_token')->plainTextToken;

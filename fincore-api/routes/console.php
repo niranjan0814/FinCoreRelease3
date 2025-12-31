@@ -13,3 +13,4 @@ Artisan::command('inspire', function () {
  * This will close all open staff sessions and lock user accounts
  */
 Schedule::command('sessions:auto-logout')->dailyAt('00:00');
+Schedule::command('users:disable-inactive')->dailyAt('00:01');

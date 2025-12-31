@@ -16,6 +16,7 @@ export type Page =
     | 'reports'
     | 'finance' | 'fund-transactions' | 'branch-transactions'
     | 'investments' | 'staff-management' | 'roles-privileges'
+    | 'shareholders'
     | 'complaints' | 'system-config' | 'documents' | 'public-website' | 'center-requests'
     | string;
 

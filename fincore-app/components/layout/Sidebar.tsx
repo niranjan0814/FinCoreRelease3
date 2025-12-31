@@ -23,7 +23,9 @@ import {
     ChevronRight,
     Download,
     Calendar,
-    Package
+    Package,
+    MessageSquare,
+    PieChart
 } from 'lucide-react';
 import { Page } from './MainLayout';
 
@@ -101,6 +103,11 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
             label: 'Customers',
             icon: <User className="w-5 h-5" />,
             permission: 'customers.view'
+        },
+        {
+            id: 'shareholders',
+            label: 'Shareholders',
+            icon: <PieChart className="w-5 h-5" />
         }
     ];
 
@@ -541,26 +548,24 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                 )}
 
                 {/* Complaints */}
-                {isMounted && authService.hasPermission('complaints.view') && (
-                    <button
-                        onClick={() => onNavigate('complaints')}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative ${currentPage === 'complaints'
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                        title={isCollapsed ? 'Complaints' : ''}
-                    >
-                        <div className={`${currentPage === 'complaints' ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`}>
-                            <AlertCircle className="w-5 h-5" />
+                <button
+                    onClick={() => onNavigate('complaints')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative ${currentPage === 'complaints'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                    title={isCollapsed ? 'Complaints' : ''}
+                >
+                    <div className={`${currentPage === 'complaints' ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                        <MessageSquare className="w-5 h-5" />
+                    </div>
+                    {!isCollapsed && <span className="text-sm font-medium">Complaints</span>}
+                    {isCollapsed && (
+                        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                            Complaints
                         </div>
-                        {!isCollapsed && <span className="text-sm font-medium">Complaints</span>}
-                        {isCollapsed && (
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                                Complaints
-                            </div>
-                        )}
-                    </button>
-                )}
+                    )}
+                </button>
 
                 {/* System Config */}
                 {isMounted && authService.hasPermission('settings.view') && (

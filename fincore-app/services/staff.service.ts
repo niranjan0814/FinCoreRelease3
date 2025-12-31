@@ -57,7 +57,7 @@ export const staffService = {
 
     getStaffDropdownList: async (): Promise<Staff[]> => {
         try {
-            const response = await fetch(`${API_BASE_URL}/staffs/dropdown-list`, { headers: getHeaders() });
+            const response = await fetch(`${API_BASE_URL}/staffs/list`, { headers: getHeaders() });
             if (!response.ok) return [];
 
             const json = await response.json();

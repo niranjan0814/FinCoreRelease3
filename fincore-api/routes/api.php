@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CenterChangeRequestController;
+use App\Http\Controllers\Api\ShareholderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -228,7 +229,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Staff Management
         Route::prefix('staffs')->group(function () {
-            Route::get('/dropdown-list', [StaffController::class, 'list']); // New dropdown endpoint
+            Route::get('/list', [StaffController::class, 'list']); // New dropdown endpoint
             Route::get('/', [StaffController::class, 'index'])->middleware('permission:staff.view');
             Route::get('/by-role/{role}', [StaffController::class, 'byRole']); 
             Route::post('/', [StaffController::class, 'store'])->middleware('permission:staff.create');
@@ -248,6 +249,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::post('/import', [CustomerController::class, 'import'])->middleware('permission:customers.import');
             Route::get('/export', [CustomerController::class, 'export'])->middleware('permission:customers.export');
         });
+
+        // Receipts
+        Route::prefix('receipts')->group(function () {
+            Route::post('/', [App\Http\Controllers\Api\ReceiptController::class, 'store']);
+            Route::post('/{id}/cancel-request', [App\Http\Controllers\Api\ReceiptController::class, 'requestCancellation']);
+            Route::post('/{id}/approve-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'approveCancellation']);
+        });
+
+        // Complaints
+        Route::apiResource('complaints', App\Http\Controllers\Api\ComplaintController::class);
 
         // Collections
         Route::get('/collections/due', [App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
@@ -297,5 +308,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::put('/{role}', [RoleController::class, 'update'])->middleware('permission:roles.edit');
             Route::delete('/{role}', [RoleController::class, 'destroy'])->middleware('permission:roles.delete');
         });
+
+        // Shareholders
+        Route::apiResource('shareholders', ShareholderController::class);
     });
 });

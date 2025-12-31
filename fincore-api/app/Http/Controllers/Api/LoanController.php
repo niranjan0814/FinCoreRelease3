@@ -193,4 +193,76 @@ class LoanController extends Controller
             ], 500);
         }
     }
+
+    public function update(Request $request, $id)
+    {
+        try {
+            $loan = Loan::findOrFail($id);
+
+            // Prevent editing if loan is active (approved)
+            if ($loan->status === 'approved' || $loan->status === 'Active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Cannot edit an active or approved loan.'
+                ], 403);
+            }
+
+            // Reuse the same validation as store, but maybe some fields are not editable?
+            // For simplicity, we can reuse similar validation or assume request is partial.
+            // Typically, re-validation is good.
+            $validated = $request->validate([
+                'product_id' => 'sometimes|exists:loan_products,id',
+                'CSU_id' => 'sometimes|exists:centers,id',
+                'customer_id' => 'sometimes|exists:customers,id',
+                'group_id' => 'nullable|exists:groups,id',
+                'request_amount' => 'sometimes|numeric',
+                'approved_amount' => 'sometimes|numeric',
+                'terms' => 'sometimes|integer',
+                'interest_rate' => 'sometimes|numeric',
+                // Add other fields as 'sometimes'
+            ]);
+
+            $loan->update($request->all());
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Loan updated successfully',
+                'data' => $loan
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update loan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $loan = Loan::findOrFail($id);
+
+            // Prevent deletion if loan is active (approved)
+            if ($loan->status === 'approved' || $loan->status === 'Active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Cannot delete an active or approved loan.'
+                ], 403);
+            }
+
+            $loan->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Loan deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete loan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
