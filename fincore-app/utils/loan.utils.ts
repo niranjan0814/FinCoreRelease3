@@ -1,5 +1,24 @@
 import { CustomerRecord, LoanFormData } from '@/types/loan.types';
 
+export const extractGenderFromNIC = (nic: string): 'Male' | 'Female' | null => {
+    const cleanNIC = nic.toUpperCase().trim();
+    let dayValue = 0;
+
+    if (/^(\d{9})[VX]$/.test(cleanNIC)) {
+        dayValue = parseInt(cleanNIC.substring(2, 5));
+    } else if (/^(\d{12})$/.test(cleanNIC)) {
+        dayValue = parseInt(cleanNIC.substring(4, 7));
+    } else {
+        return null;
+    }
+
+    return dayValue > 500 ? 'Female' : 'Male';
+};
+
+export const isValidNIC = (nic: string): boolean => {
+    return /^([0-9]{9}[x|X|v|V]|[0-9]{12})$/.test(nic.trim());
+};
+
 export const calculateTotalFees = (formData: LoanFormData): number => {
     return (
         Number(formData.processingFee || 0) +

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { GroupFormData } from '../../types/group.types';
 import { Center } from '../../types/center.types';
 import { Customer } from '../../types/customer.types';
+import { isLoanClosed } from '../../types/loan.types';
 import { centerService } from '../../services/center.service';
 import { customerService } from '../../services/customer.service';
 import { authService } from '../../services/auth.service';
@@ -232,18 +233,30 @@ export function GroupForm({ isOpen, onClose, onSubmit, initialData }: GroupFormP
                                     ) : filteredCustomers.length > 0 ? (
                                         filteredCustomers.map((customer) => {
                                             const isSelected = selectedCustomers.find(c => c.id === customer.id);
+                                            // Identify active loans from customer.loans relation
+                                            const activeLoan = customer.loans?.find((l: any) => {
+                                                return !isLoanClosed(l.status || '') && Number(l.outstanding_amount) > 0;
+                                            });
+
                                             return (
                                                 <div
                                                     key={customer.id}
-                                                    onClick={() => toggleCustomer(customer)}
-                                                    className={`p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}
+                                                    onClick={() => !activeLoan && toggleCustomer(customer)}
+                                                    className={`p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/30' : ''} ${activeLoan ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}`}
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'bg-gray-100 text-gray-500'}`}>
                                                             {customer.full_name.charAt(0)}
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-800 leading-none">{customer.full_name}</p>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-semibold text-gray-800 leading-none truncate">{customer.full_name}</p>
+                                                                {activeLoan && (
+                                                                    <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">
+                                                                        Has Active Loan ({activeLoan.loan_id})
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-[11px] text-gray-400 font-mono mt-1">{customer.customer_code}</p>
                                                         </div>
                                                     </div>

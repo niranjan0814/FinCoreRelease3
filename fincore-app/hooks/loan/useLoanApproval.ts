@@ -1,7 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { LoanApprovalItem, LoanStatus } from '@/types/loan-approval.types';
 import { loanService } from '@/services/loan.service';
-import { Loan } from '@/types/loan.types';
+import {
+    Loan,
+    LOAN_STATUS_SENT_BACK,
+    LOAN_STATUS_PENDING_1ST,
+    LOAN_STATUS_PENDING_2ND,
+    LOAN_STATUS_APPROVED,
+    getLoanStatusLabel
+} from '@/types/loan.types';
 
 export function useLoanApproval() {
     const [loans, setLoans] = useState<LoanApprovalItem[]>([]);
@@ -13,14 +20,14 @@ export function useLoanApproval() {
 
     const mapLoanToApprovalItem = (l: Loan): LoanApprovalItem => {
         const approvalLevel = (l as any).approval_level || 0;
-        const firstApprovalStatus = approvalLevel > 0 ? 'Approved' : (l.status === 'sent_back' ? 'Sent Back' : 'Pending');
+        const firstApprovalStatus = approvalLevel > 0 ? 'Approved' : (l.status === LOAN_STATUS_SENT_BACK ? 'Sent Back' : 'Pending');
         const secondApprovalStatus = approvalLevel > 1 ? 'Approved' : (approvalLevel === 1 ? 'Pending' : null);
 
         // Map backend status to frontend display status
         let displayStatus: LoanStatus = 'Pending 1st';
-        if (l.status === 'pending_2nd') displayStatus = 'Pending 2nd';
-        if (l.status === 'approved') displayStatus = 'Approved';
-        if (l.status === 'sent_back') displayStatus = 'Sent Back';
+        if (l.status === LOAN_STATUS_PENDING_2ND) displayStatus = 'Pending 2nd';
+        if (l.status === LOAN_STATUS_APPROVED) displayStatus = 'Approved';
+        if (l.status === LOAN_STATUS_SENT_BACK) displayStatus = 'Sent Back';
 
         const createdAt = l.created_at ? new Date(l.created_at) : new Date();
 
@@ -31,31 +38,35 @@ export function useLoanApproval() {
             customerName: l.customer?.full_name || 'N/A',
             nic: l.customer?.customer_code || 'N/A',
             loanAmount: Number(l.approved_amount || 0),
-            staff: 'N/A',
+            staff: (l as any).staff?.full_name || (l as any).staff?.user_name || 'N/A',
             submittedDate: createdAt.toISOString().split('T')[0],
             submittedTime: createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             firstApproval: firstApprovalStatus as any,
+            firstApprovalDate: l.approve_history?.first ? `${l.approve_history.first.name} (${new Date(l.approve_history.first.at).toLocaleDateString()})` : undefined,
             secondApproval: secondApprovalStatus as any,
+            secondApprovalDate: l.approve_history?.second ? `${l.approve_history.second.name} (${new Date(l.approve_history.second.at).toLocaleDateString()})` : undefined,
             status: displayStatus,
+            rejectionReason: (l as any).rejection_reason,
             loanDetails: {
                 purpose: (l as any).loan_step || 'N/A',
                 tenure: l.terms,
                 interestRate: Number(l.interest_rate),
-                center: (l as any).center?.name || 'N/A',
-                group: (l as any).group?.group_name || 'N/A'
-            }
+                center: l.center?.center_name || 'N/A',
+                group: (l as any).group?.group_name || 'N/A',
+                branchManager: (l as any).center?.branch?.manager?.full_name || l.center?.branch?.manager_name || 'Branch Manager'
+            },
+            rawLoan: l
         };
     };
 
     const fetchLoans = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch all loans without specific status filter initially to show in approval list
-            // or we could filter by pending statuses
-            const response = await loanService.getLoans({ per_page: 100 } as any);
+            // Fetch all loans explicitly asking for all statuses
+            const response = await loanService.getLoans({ per_page: 100, status: 'all_statuses' } as any);
             // Filter only those that need approval
             const approvalNeeded = response.data.filter(l =>
-                ['pending_1st', 'pending_2nd', 'sent_back'].includes(l.status)
+                [LOAN_STATUS_PENDING_1ST, LOAN_STATUS_PENDING_2ND].includes(l.status)
             );
             setLoans(approvalNeeded.map(mapLoanToApprovalItem));
             setError(null);
@@ -82,10 +93,10 @@ export function useLoanApproval() {
         });
     }, [loans, searchTerm, filterStatus]);
 
-    const handleFirstApproval = useCallback(async (loanId: string, action: 'approve' | 'sendback') => {
+    const handleFirstApproval = useCallback(async (loanId: string, action: 'approve' | 'sendback', reason: string = '') => {
         try {
             const backendAction = action === 'approve' ? 'approve' : 'send_back';
-            await loanService.approveLoan(loanId, backendAction);
+            await loanService.approveLoan(loanId, backendAction, reason);
             await fetchLoans();
             setViewingLoan(null);
         } catch (err) {
@@ -94,10 +105,10 @@ export function useLoanApproval() {
         }
     }, [fetchLoans]);
 
-    const handleSecondApproval = useCallback(async (loanId: string, action: 'approve' | 'sendback') => {
+    const handleSecondApproval = useCallback(async (loanId: string, action: 'approve' | 'sendback', reason: string = '') => {
         try {
             const backendAction = action === 'approve' ? 'approve' : 'send_back';
-            await loanService.approveLoan(loanId, backendAction);
+            await loanService.approveLoan(loanId, backendAction, reason);
             await fetchLoans();
             setViewingLoan(null);
         } catch (err) {

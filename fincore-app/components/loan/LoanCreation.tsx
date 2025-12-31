@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { FileText, Save, User, DollarSign, Upload, FileText as FileTextIcon } from 'lucide-react';
-import { LoanFormData } from '@/types/loan.types';
+import { LoanFormData, Loan } from '@/types/loan.types';
 import { useLoanForm } from '@/hooks/loan/useLoanForm';
 import { useDraftManager } from '@/hooks/loan/useDraftManager';
 import { loanService } from '@/services/loan.service';
@@ -13,12 +13,17 @@ import { CustomerSelection } from './steps/CustomerSelection';
 import { LoanDetails } from './steps/LoanDetails';
 import { DocumentUpload } from './steps/DocumentUpload';
 import { ReviewSubmit } from './steps/ReviewSubmit';
+import { useSearchParams } from 'next/navigation';
+import { isValidNIC, extractGenderFromNIC } from '@/utils/loan.utils';
 
 export function LoanCreation() {
     const [currentStep, setCurrentStep] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {
         formData,
+        isDirty,
+        setIsDirty,
         centers,
         groups,
         loanProducts,
@@ -31,20 +36,56 @@ export function LoanCreation() {
         handleGroupChange,
         updateFormField,
         loadFormData,
+        loadFromLoan,
+        isAutoFilling,
+        customerActiveLoans
     } = useLoanForm();
+
+    const searchParams = useSearchParams();
+    const editId = searchParams.get('edit');
+
+    useEffect(() => {
+        if (editId) {
+            const fetchAndLoad = async () => {
+                try {
+                    const loan = await loanService.getLoanById(editId);
+                    loadFromLoan(loan);
+                    setIsDirty(false); // Reset dirty after initial load
+                } catch (err) {
+                    console.error('Failed to load loan for editing:', err);
+                }
+            };
+            fetchAndLoad();
+        }
+    }, [editId, loadFromLoan, setIsDirty]);
+
+    // Track unsaved changes for browser navigation
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isDirty && !isSubmitting) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty, isSubmitting]);
 
     const handleLoadDraft = useCallback(
         (data: LoanFormData, step: number) => {
             loadFormData(data);
             setCurrentStep(step);
+            setIsDirty(false);
         },
-        [loadFormData]
+        [loadFormData, setIsDirty]
     );
 
     const {
         drafts,
         isDraftModalOpen,
         setIsDraftModalOpen,
+        loadedDraftId,
         saveDraft,
         loadDraft,
         deleteDraft,
@@ -68,27 +109,82 @@ export function LoanCreation() {
         if (!formData.customer) return 'Please select a Customer.';
         if (!selectedCustomerRecord) return 'Invalid Customer selected.';
 
-        // Guardian Validation
         if (!formData.guardian_nic) return 'Guardian NIC is required.';
+        if (!isValidNIC(formData.guardian_nic)) return 'Invalid Guardian NIC format.';
+
+        const guardianGender = extractGenderFromNIC(formData.guardian_nic);
+        if (guardianGender !== 'Male') return 'Guardian must be a male.';
+
         if (!formData.guardian_name) return 'Guardian Name is required.';
         if (!formData.guardian_address) return 'Guardian Address is required.';
         if (!formData.guardian_phone) return 'Guardian Phone is required.';
+        if (!/^\d{10}$/.test(formData.guardian_phone)) return 'Guardian Phone must be 10 digits.';
 
-        // Witness Validation
         if (!formData.witness1_id) return 'Witness 01 is required.';
         if (!formData.witness2_id) return 'Witness 02 is required.';
         if (formData.witness1_id === formData.witness2_id) return 'Witness 01 and 02 cannot be the same person.';
+        return null;
+    };
+
+    const validateStep2 = () => {
+        if (!formData.loanProduct) return 'Please select a Loan Product.';
+        if (!formData.requestedAmount || Number(formData.requestedAmount) <= 0) return 'Valid Requested Amount is required.';
+        if (!formData.loanAmount || Number(formData.loanAmount) <= 0) return 'Valid Approved Amount is required.';
+
+        if (Number(formData.loanAmount) > Number(formData.requestedAmount)) {
+            return 'Approved Amount cannot exceed Requested Amount.';
+        }
+
+        if (!formData.interestRate || Number(formData.interestRate) < 0) return 'Valid Interest Rate is required.';
+        if (!formData.tenure || Number(formData.tenure) <= 0) return 'Valid Tenure is required.';
+
+        // Prevent duplicate active loan of same type
+        if (customerActiveLoans.includes(Number(formData.loanProduct))) {
+            const product = loanProducts.find(p => p.id === Number(formData.loanProduct));
+            return `Customer already has an active ${product?.product_name || 'selected'} loan.`;
+        }
+
+        // Ensure guarantors are present (auto-filled from Step 1 selection)
+        if (!formData.guarantor1_name || !formData.guarantor1_nic) {
+            return 'Guarantor 01 is missing. Ensure the selected group has other active members.';
+        }
+        if (!formData.guarantor2_name || !formData.guarantor2_nic) {
+            return 'Guarantor 02 is missing. Ensure the selected group has at least 3 members.';
+        }
 
         return null;
     };
 
-    const handleNext = useCallback(() => {
-        if (currentStep === 1) {
-            const error = validateStep1();
+    const handleStepClick = useCallback((stepNumber: number) => {
+        if (stepNumber <= currentStep) {
+            setCurrentStep(stepNumber);
+            return;
+        }
+
+        // Sequentially validate steps when trying to jump forward
+        for (let i = 1; i < stepNumber; i++) {
+            let error = null;
+            if (i === 1) error = validateStep1();
+            if (i === 2) error = validateStep2();
+
             if (error) {
-                alert(error);
+                alert(`Wait! Please complete Step ${i} first: ${error}`);
+                setCurrentStep(i);
                 return;
             }
+        }
+
+        setCurrentStep(stepNumber);
+    }, [currentStep, formData, selectedCustomerRecord]);
+
+    const handleNext = useCallback(() => {
+        let error = null;
+        if (currentStep === 1) error = validateStep1();
+        if (currentStep === 2) error = validateStep2();
+
+        if (error) {
+            alert(error);
+            return;
         }
 
         if (currentStep < 4) setCurrentStep(currentStep + 1);
@@ -100,8 +196,11 @@ export function LoanCreation() {
 
     const handleSaveDraft = useCallback(() => {
         const result = saveDraft();
+        if (result.success) {
+            setIsDirty(false); // Reset dirty after explicit save
+        }
         alert(result.message);
-    }, [saveDraft]);
+    }, [saveDraft, setIsDirty]);
 
     const handleLoadDraftClick = useCallback(
         (draftId: string) => {
@@ -115,17 +214,25 @@ export function LoanCreation() {
 
     const handleDeleteDraft = useCallback(
         (draftId: string) => {
-            const result = deleteDraft(draftId);
-            if (result.success) {
-                alert(result.message);
+            if (confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+                const result = deleteDraft(draftId);
+                if (result.success) {
+                    alert(result.message);
+                }
             }
         },
         [deleteDraft]
     );
 
     const handleSubmit = useCallback(async () => {
+        // Final sequential validation
+        const err1 = validateStep1();
+        if (err1) { alert(`Step 1: ${err1}`); setCurrentStep(1); return; }
+
+        const err2 = validateStep2();
+        if (err2) { alert(`Step 2: ${err2}`); setCurrentStep(2); return; }
+
         try {
-            // Map frontend form data to backend expected format
             const payload = {
                 product_id: formData.loanProduct,
                 CSU_id: formData.center,
@@ -147,19 +254,30 @@ export function LoanCreation() {
                 guarantor2_name: formData.guarantor2_name,
                 guarantor2_nic: formData.guarantor2_nic,
                 witness1_id: formData.witness1_id,
-                witness2_id: formData.witness2_id
+                witness2_id: formData.witness2_id,
+                edit_id: editId || undefined
             };
 
+            setIsSubmitting(true);
             const result = await loanService.createLoan(payload);
             console.log('Loan created:', result);
             alert('Loan application submitted for approval successfully!');
-            // Reset form or redirect
-            window.location.href = '/loans/approval'; // Redirect to approval page
+
+            setIsDirty(false);
+
+            if (loadedDraftId) {
+                if (confirm('Loan submitted successfully! Do you want to delete the draft used for this application?')) {
+                    deleteDraft(loadedDraftId);
+                }
+            }
+
+            window.location.href = '/loans/approval';
         } catch (error: any) {
+            setIsSubmitting(false);
             console.error('Submission failed:', error);
             alert('Failed to submit loan: ' + (error.message || 'Unknown error'));
         }
-    }, [formData]);
+    }, [formData, loadedDraftId, deleteDraft, editId, setIsDirty]);
 
     return (
         <div className="space-y-6">
@@ -194,7 +312,7 @@ export function LoanCreation() {
                 </div>
             </div>
 
-            <ProgressSteps steps={steps} currentStep={currentStep} />
+            <ProgressSteps steps={steps} currentStep={currentStep} onStepClick={handleStepClick} />
 
             <div className="bg-white rounded-lg p-6 border border-gray-200">
                 {currentStep === 1 && (
@@ -210,6 +328,7 @@ export function LoanCreation() {
                         onCustomerChange={handleCustomerChange}
                         onFieldChange={updateFormField}
                         staffs={staffs}
+                        isAutoFilling={isAutoFilling}
                     />
                 )}
 
@@ -218,6 +337,7 @@ export function LoanCreation() {
                         formData={formData}
                         loanProducts={loanProducts}
                         onFieldChange={updateFormField}
+                        customerActiveLoans={customerActiveLoans}
                     />
                 )}
 

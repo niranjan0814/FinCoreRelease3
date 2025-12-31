@@ -11,6 +11,7 @@ export const useDraftManager = (
 ) => {
     const [drafts, setDrafts] = useState<DraftItem[]>([]);
     const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
+    const [loadedDraftId, setLoadedDraftId] = useState<string | null>(null);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -24,18 +25,6 @@ export const useDraftManager = (
                 }
             } catch (error) {
                 console.error('Failed to load draft list', error);
-            }
-        }
-
-        const saved = localStorage.getItem(STORAGE_KEYS.DRAFT);
-        if (saved) {
-            try {
-                const parsed: DraftPayload = JSON.parse(saved);
-                if (parsed.formData && onLoadDraft) {
-                    onLoadDraft(parsed.formData, parsed.currentStep || 1);
-                }
-            } catch (error) {
-                console.error('Failed to load draft', error);
             }
         }
     }, [onLoadDraft]);
@@ -85,6 +74,7 @@ export const useDraftManager = (
                 onLoadDraft(draft.formData, draft.currentStep || 1);
             }
 
+            setLoadedDraftId(draftId);
             setIsDraftModalOpen(false);
             return { success: true, message: `Draft "${draft.name}" loaded` };
         },
@@ -95,13 +85,18 @@ export const useDraftManager = (
         const updated = drafts.filter((item) => item.id !== draftId);
         setDrafts(updated);
         localStorage.setItem(STORAGE_KEYS.DRAFT_LIST, JSON.stringify(updated));
+        if (loadedDraftId === draftId) {
+            setLoadedDraftId(null);
+        }
         return { success: true, message: 'Draft deleted' };
-    }, [drafts]);
+    }, [drafts, loadedDraftId]);
 
     return {
         drafts,
         isDraftModalOpen,
         setIsDraftModalOpen,
+        loadedDraftId,
+        setLoadedDraftId,
         saveDraft,
         loadDraft,
         deleteDraft,

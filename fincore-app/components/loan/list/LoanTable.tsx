@@ -13,16 +13,25 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'Active':
+            case 'approved':
                 return 'bg-green-100 text-green-700';
             case 'Pending':
+            case 'pending_1st':
+            case 'pending_2nd':
                 return 'bg-yellow-100 text-yellow-700';
             case 'Completed':
                 return 'bg-blue-100 text-blue-700';
             case 'Defaulted':
                 return 'bg-red-100 text-red-700';
+            case 'sent_back':
+                return 'bg-amber-100 text-amber-700';
             default:
                 return 'bg-gray-100 text-gray-700';
         }
+    };
+
+    const formatStatus = (status: string) => {
+        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
     return (
@@ -85,9 +94,16 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
 
                                 {/* Status */}
                                 <div className="col-span-1">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(loan.status)}`}>
-                                        {loan.status}
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(loan.status)}`}>
+                                            {formatStatus(loan.status)}
+                                        </span>
+                                        {loan.status === 'sent_back' && loan.rejection_reason && (
+                                            <span className="text-[10px] text-orange-600 font-bold max-w-[100px] truncate" title={loan.rejection_reason}>
+                                                "{loan.rejection_reason}"
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Actions */}

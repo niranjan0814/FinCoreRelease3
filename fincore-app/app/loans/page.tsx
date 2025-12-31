@@ -7,9 +7,13 @@ import { loanService } from '@/services/loan.service';
 import { LoanStats } from '@/components/loan/list/LoanStats';
 import { LoanTable } from '@/components/loan/list/LoanTable';
 import { LoanDetailModal } from '@/components/loan/list/LoanDetailModal';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 export default function LoanListPage() {
+    const searchParams = useSearchParams();
+    const statusFromUrl = searchParams.get('status');
+
     const [loans, setLoans] = useState<Loan[]>([]);
     const [stats, setStats] = useState<LoanStatsType>({
         total_count: 0,
@@ -19,12 +23,19 @@ export default function LoanListPage() {
     });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
+    const [statusFilter, setStatusFilter] = useState(statusFromUrl || 'All');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (statusFromUrl) {
+            setStatusFilter(statusFromUrl);
+            setCurrentPage(1);
+        }
+    }, [statusFromUrl]);
 
     const fetchLoans = useCallback(async () => {
         try {
@@ -135,11 +146,11 @@ export default function LoanListPage() {
                         }}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
                     >
-                        <option value="All">All Statuses</option>
-                        <option value="Pending">Pending</option>
+                        <option value="All">All Portfolio</option>
                         <option value="Active">Active</option>
                         <option value="Completed">Completed</option>
                         <option value="Defaulted">Defaulted</option>
+                        <option value="sent_back">Sent Back / Rejected</option>
                     </select>
                 </div>
             </div>
@@ -173,8 +184,8 @@ export default function LoanListPage() {
                                         key={i + 1}
                                         onClick={() => setCurrentPage(i + 1)}
                                         className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1
-                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                                                : 'text-gray-600 hover:bg-gray-100'
+                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                                            : 'text-gray-600 hover:bg-gray-100'
                                             }`}
                                     >
                                         {i + 1}

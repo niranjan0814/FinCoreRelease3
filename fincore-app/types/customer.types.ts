@@ -72,6 +72,7 @@ export interface Customer {
     branch?: any;
     center?: any;
     group?: any;
+    loans?: any[];
 }
 
 export interface CustomerStats {

@@ -129,7 +129,23 @@ export function RolesPrivileges() {
         }
     };
 
-    // Handlers - Privileges (Limited editing as they are defined by backend permissions usually)
+    // Handlers - Privileges
+    const handleSavePrivilege = async (privilegeData: Partial<Privilege>) => {
+        try {
+            if (privilegeData.name) {
+                await roleService.createPermission({
+                    name: privilegeData.name,
+                    description: privilegeData.description || ''
+                });
+                toast.success("Permission created successfully");
+                await loadData(); // Reload to see the new permission in the list
+                setPrivModalOpen(false);
+            }
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create permission");
+        }
+    };
+
     const handleCreatePrivilege = () => {
         setEditingPrivilege(null);
         setPrivModalOpen(true);
@@ -353,7 +369,7 @@ export function RolesPrivileges() {
             <PrivilegeModal
                 isOpen={privModalOpen}
                 onClose={() => setPrivModalOpen(false)}
-                onSave={() => toast.info('Creating individual permissions is handled via backend migration')}
+                onSave={handleSavePrivilege}
                 editingPrivilege={editingPrivilege}
             />
         </div>

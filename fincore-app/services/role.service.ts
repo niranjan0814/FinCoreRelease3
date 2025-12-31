@@ -67,6 +67,23 @@ export const roleService = {
         }
     },
 
+    // Create Permission
+    createPermission: async (data: { name: string, description: string }): Promise<any> => {
+        const response = await fetch(`${API_BASE_URL}/permissions`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to create permission');
+        }
+
+        return result.data;
+    },
+
     // Create Role
     createRole: async (roleData: any): Promise<any> => {
         const response = await fetch(`${API_BASE_URL}/roles`, {

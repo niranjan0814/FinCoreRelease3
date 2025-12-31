@@ -14,11 +14,12 @@ export interface LoansResponse {
 }
 
 export const loanService = {
-    getLoans: async (params: { search?: string; status?: string; page?: number }): Promise<LoansResponse> => {
+    getLoans: async (params: { search?: string; status?: string; page?: number; per_page?: number }): Promise<LoansResponse> => {
         const query = new URLSearchParams();
         if (params.search) query.append('search', params.search);
         if (params.status) query.append('status', params.status);
         if (params.page) query.append('page', params.page.toString());
+        if (params.per_page) query.append('per_page', params.per_page.toString());
 
         const response = await fetch(`${API_BASE_URL}/loans?${query.toString()}`, {
             headers: getHeaders()
@@ -37,7 +38,14 @@ export const loanService = {
         });
 
         const json = await response.json();
-        if (!response.ok) throw new Error(json.message || 'Failed to submit loan application');
+        if (!response.ok) {
+            let errorMessage = json.message || 'Failed to submit loan application';
+            if (json.errors) {
+                const details = Object.values(json.errors).flat().join(', ');
+                errorMessage += `: ${details}`;
+            }
+            throw new Error(errorMessage);
+        }
         return json.data;
     },
 
@@ -51,11 +59,11 @@ export const loanService = {
         return json.data;
     },
 
-    approveLoan: async (id: number | string, action: 'approve' | 'send_back'): Promise<Loan> => {
+    approveLoan: async (id: number | string, action: 'approve' | 'send_back', reason?: string): Promise<Loan> => {
         const response = await fetch(`${API_BASE_URL}/loans/${id}/approve`, {
             method: 'PATCH',
             headers: getHeaders(),
-            body: JSON.stringify({ action })
+            body: JSON.stringify({ action, reason })
         });
 
         const json = await response.json();
