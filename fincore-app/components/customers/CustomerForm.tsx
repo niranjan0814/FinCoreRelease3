@@ -84,63 +84,17 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
     const [filteredCenters, setFilteredCenters] = useState<any[]>([]);
 
     const [formData, setFormData] = useState<Partial<CustomerFormData>>({
-        // Product / Location
-        branch_id: initialData?.branch_id || undefined,
-        center_id: initialData?.center_id || undefined,
-        grp_id: initialData?.grp_id || undefined,
-        location: initialData?.location || '',
-        product_type: initialData?.product_type || '',
-        base_product: initialData?.base_product || '',
-        pcsu_csu_code: initialData?.pcsu_csu_code || '',
-
-        // Personal
-        code_type: 'NIC',
-        customer_code: initialData?.customer_code || '',
-        gender: initialData?.gender || 'Female',
-        title: initialData?.title || 'Mrs',
-        full_name: initialData?.full_name || '',
-        initials: initialData?.initials || '',
-        first_name: initialData?.first_name || '',
-        last_name: initialData?.last_name || '',
+        ...initialData,
         date_of_birth: initialData?.date_of_birth ? new Date(initialData.date_of_birth).toISOString().split('T')[0] : '',
-        civil_status: initialData?.civil_status || 'Married',
-        religion: initialData?.religion || 'Buddhism',
-        mobile_no_1: initialData?.mobile_no_1 || '',
-        mobile_no_2: initialData?.mobile_no_2 || '',
-        ccl_mobile_no: initialData?.ccl_mobile_no || '',
-        spouse_name: initialData?.spouse_name || '',
-        family_members_count: initialData?.family_members_count || undefined,
-        monthly_income: initialData?.monthly_income || undefined,
-        status: initialData?.status || 'active',
-
-        // Address
-        address_type: initialData?.address_type || 'Permanent',
-        address_line_1: initialData?.address_line_1 || '',
-        address_line_2: initialData?.address_line_2 || '',
-        address_line_3: initialData?.address_line_3 || '',
-        country: initialData?.country || 'Sri Lanka',
-        province: initialData?.province || '',
-        district: initialData?.district || '',
-        city: initialData?.city || '',
-        gs_division: initialData?.gs_division || '',
-        telephone: initialData?.telephone || '',
-        preferred_address: initialData?.preferred_address || false,
-
-        // Business
-        ownership_type: initialData?.ownership_type || '',
-        register_number: initialData?.register_number || '',
-        business_name: initialData?.business_name || '',
-        business_email: initialData?.business_email || '',
-        business_duration: initialData?.business_duration || '',
-        business_place: initialData?.business_place || '',
-        handled_by: initialData?.handled_by || '',
-        no_of_employees: initialData?.no_of_employees || undefined,
-        market_reputation: initialData?.market_reputation || '',
-        sector: initialData?.sector || '',
-        sub_sector: initialData?.sub_sector || '',
     });
 
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const isFieldOfficer = authService.hasRole('field_officer');
+    const hasActiveLoans = (initialData as any)?.active_loans_count > 0;
+    const isEditMode = !!initialData;
+    const isExplicitlyUnlocked = (initialData as any)?.is_edit_locked === false;
+    const requiresApproval = isEditMode && isFieldOfficer && hasActiveLoans && !isExplicitlyUnlocked;
+    const isPendingApproval = (initialData as any)?.edit_request_status === 'pending';
 
     useEffect(() => {
         loadConstants();
@@ -372,8 +326,19 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                         <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
                             {initialData ? 'Edit Profile' : 'New Customer'}
                             {!initialData && <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[10px] rounded-full uppercase tracking-widest font-black ring-1 ring-blue-500/20">Active Draft</span>}
+                            {isPendingApproval && <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[10px] rounded-full uppercase tracking-widest font-black ring-1 ring-amber-500/20">Pending Approval</span>}
                         </h2>
                         <p className="text-xs text-gray-500 dark:text-gray-400 font-bold tracking-wider uppercase opacity-70">Core CRM Portal • Registration Workspace</p>
+                        {requiresApproval && !isPendingApproval && (
+                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight bg-blue-50 px-2 py-1 rounded inline-block mt-2">
+                                ℹ️ This customer has active loans. Edits will require Manager approval.
+                            </p>
+                        )}
+                        {isPendingApproval && (
+                            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight bg-amber-50 px-2 py-1 rounded inline-block mt-2 font-mono">
+                                ⚠️ A change request is already pending for this customer.
+                            </p>
+                        )}
                     </div>
                     <button
                         onClick={onClose}
@@ -490,18 +455,20 @@ export function CustomerForm({ onClose, onSubmit, initialData }: CustomerFormPro
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-3 px-12 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl transition-all font-black text-sm uppercase tracking-widest shadow-2xl shadow-blue-500/25 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        disabled={loading || isPendingApproval}
+                        className={`flex items-center gap-3 px-12 py-3.5 ${isPendingApproval ? 'bg-gray-400' : requiresApproval ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl transition-all font-black text-sm uppercase tracking-widest shadow-2xl shadow-blue-500/25 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none`}
                     >
                         {loading ? (
                             <>
                                 <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span>Verifying...</span>
+                                <span>{requiresApproval ? 'Submitting...' : 'Verifying...'}</span>
                             </>
                         ) : (
                             <>
-                                <CheckCircle2 size={20} />
-                                <span>{initialData ? 'Update Record' : 'Finalize Profile'}</span>
+                                {requiresApproval ? <ShieldCheck size={20} /> : <CheckCircle2 size={20} />}
+                                <span>
+                                    {isPendingApproval ? 'Request Pending' : requiresApproval ? 'Submit for Approval' : initialData ? 'Update Record' : 'Finalize Profile'}
+                                </span>
                             </>
                         )}
                     </button>

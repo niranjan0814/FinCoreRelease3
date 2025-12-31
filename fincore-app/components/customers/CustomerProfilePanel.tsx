@@ -1,25 +1,33 @@
 import React, { useState } from 'react';
-import { X, Phone, Mail, MapPin, Building, Eye, ShieldAlert, ArrowRightLeft } from 'lucide-react';
+import { X, Phone, Mail, MapPin, Building, Eye, ShieldAlert, ShieldCheck, ArrowRightLeft } from 'lucide-react';
 import { Customer } from '../../types/customer.types';
 import CenterTransferModal from './CenterTransferModal';
 
 interface CustomerProfilePanelProps {
     customer: Customer;
     onClose: () => void;
-    onRequestEdit: () => void;
-    onViewFullDetails: () => void;
+    onEdit: (customer: Customer) => void;
     onStatusChange: (customer: Customer, newStatus: string) => void;
+    onViewFullDetails: () => void;
 }
 
-export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewFullDetails, onStatusChange }: CustomerProfilePanelProps) {
+export function CustomerProfilePanel({ customer, onClose, onEdit, onStatusChange, onViewFullDetails }: CustomerProfilePanelProps) {
     const [showTransferModal, setShowTransferModal] = useState(false);
 
+    // Logic alignment with CustomerForm
+    const hasActiveLoans = (customer.active_loans_count ?? 0) > 0;
+    const isPendingApproval = customer.edit_request_status === 'pending';
+    const isUnlocked = customer.is_edit_locked === false;
     const isBlocked = customer.status === 'blocked';
+
+    // Determine if clicking "Edit" will lead to an approval flow
+    // Locking only happens if they have active loans and are NOT unlocked by manager
+    const requiresApproval = hasActiveLoans && !isUnlocked;
 
     return (
         <>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col h-fit">
-                {/* Header */}
+                {/* Header - Changes color if blocked */}
                 <div className={`${isBlocked ? 'bg-red-600' : 'bg-blue-600'} p-6 relative transition-colors`}>
                     <button
                         onClick={onClose}
@@ -30,7 +38,7 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
 
                     <div className="flex flex-col gap-4">
                         <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white text-xl font-semibold backdrop-blur-sm">
-                            {customer.full_name.charAt(0)}
+                            {customer.full_name?.charAt(0) || 'C'}
                         </div>
 
                         <div>
@@ -42,7 +50,7 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                                     </span>
                                 )}
                             </div>
-                            <p className="text-white/80 text-sm mt-0.5">{customer.customer_code}</p>
+                            <p className="text-blue-100 text-sm mt-0.5">{customer.customer_code}</p>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -107,19 +115,38 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                         </div>
                     </div>
 
-                    {/* Warning Alert */}
-                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-xl p-4 flex gap-3">
-                        <ShieldAlert className="w-5 h-5 text-orange-600 dark:text-orange-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h4 className="text-sm font-bold text-orange-800 dark:text-orange-200">Edit Protection Active</h4>
-                            <p className="text-xs text-orange-600 dark:text-orange-300 mt-1 leading-relaxed">
-                                Admin approval required for profile edits
-                            </p>
+                    {/* Warning/Status Alert */}
+                    {(hasActiveLoans || isPendingApproval) && (
+                        <div className={`
+                            ${isPendingApproval ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-100' :
+                                isUnlocked && hasActiveLoans ? 'bg-green-50 dark:bg-green-900/20 border-green-100' :
+                                    'bg-orange-50 dark:bg-orange-900/20 border-orange-100'} 
+                            border rounded-xl p-4 flex gap-3`}
+                        >
+                            {isUnlocked && hasActiveLoans ? (
+                                <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            ) : (
+                                <ShieldAlert className={`w-5 h-5 ${isPendingApproval ? 'text-amber-600' : 'text-orange-600'} flex-shrink-0 mt-0.5`} />
+                            )}
+                            <div>
+                                <h4 className={`text-sm font-bold ${isPendingApproval ? 'text-amber-800' : (isUnlocked && hasActiveLoans) ? 'text-green-800' : 'text-orange-800'}`}>
+                                    {isPendingApproval ? 'Pending Approval' : (isUnlocked && hasActiveLoans) ? 'Profile Unlocked' : 'Edit Protection Active'}
+                                </h4>
+                                <p className={`text-xs ${isPendingApproval ? 'text-amber-600' : (isUnlocked && hasActiveLoans) ? 'text-green-600' : 'text-orange-600'} mt-1 leading-relaxed`}>
+                                    {isPendingApproval
+                                        ? 'A change request is currently under review.'
+                                        : (isUnlocked && hasActiveLoans)
+                                            ? 'Manager has approved access for direct profile correction.'
+                                            : 'Manager approval required for profile changes.'
+                                    }
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex flex-col gap-3 mt-2">
+                        {/* Status Toggle Button */}
                         <button
                             onClick={() => onStatusChange(customer, isBlocked ? 'active' : 'blocked')}
                             className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg ${isBlocked
@@ -132,11 +159,19 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                         </button>
 
                         <button
-                            onClick={onRequestEdit}
-                            className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                            onClick={() => onEdit(customer)}
+                            disabled={isPendingApproval}
+                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg 
+                                ${isPendingApproval ? 'bg-gray-400 cursor-not-allowed' :
+                                    (isUnlocked && hasActiveLoans) ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-500/20' :
+                                        requiresApproval ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-500/20' :
+                                            'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                                }`}
                         >
-                            <ShieldAlert className="w-4 h-4" />
-                            Request Edit Approval
+                            {(isUnlocked && hasActiveLoans) ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                            {isPendingApproval ? 'Approval in Progress' :
+                                (isUnlocked && hasActiveLoans) ? 'Apply Direct Correction' :
+                                    requiresApproval ? 'Request Profile Edit' : 'Edit Profile Details'}
                         </button>
 
                         <button

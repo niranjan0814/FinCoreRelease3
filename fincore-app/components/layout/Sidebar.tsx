@@ -25,7 +25,8 @@ import {
     Calendar,
     Package,
     MessageSquare,
-    PieChart
+    PieChart,
+    ShieldCheck
 } from 'lucide-react';
 import { Page } from './MainLayout';
 
@@ -99,9 +100,22 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
             permission: 'groups.view'
         },
         {
-            id: 'customers',
+            id: 'customers-section' as Page,
             label: 'Customers',
             icon: <User className="w-5 h-5" />,
+            submenu: [
+                {
+                    id: 'customers',
+                    label: 'Customer List',
+                    icon: <ClipboardList className="w-4 h-4" />
+                },
+                {
+                    id: 'customer-requests' as Page,
+                    label: 'Edit Approvals',
+                    icon: <ShieldCheck className="w-4 h-4" />,
+                    roles: ['super_admin', 'admin', 'manager']
+                }
+            ],
             permission: 'customers.view'
         },
         {

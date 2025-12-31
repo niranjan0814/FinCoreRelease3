@@ -6,14 +6,18 @@ import { CollectionFilters } from './CollectionFilters';
 import { ScheduledPaymentsTable } from './ScheduledPaymentsTable';
 import { PaymentModal } from './PaymentModal';
 import { ReceiptPreviewModal } from './ReceiptPreviewModal';
+import { PaymentHistoryModal } from './PaymentHistoryModal';
 import { ScheduledPayment, CollectionStats as StatsType } from '../../services/collection.types';
 import { collectionService } from '../../services/collection.service';
 import { branchService } from '../../services/branch.service';
+import { centerService } from '../../services/center.service';
 import { toast } from 'react-toastify';
 
 export function CollectionScreen() {
     const [branches, setBranches] = useState<any[]>([]);
+    const [centers, setCenters] = useState<any[]>([]);
     const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedCenter, setSelectedCenter] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
     const [payments, setPayments] = useState<ScheduledPayment[]>([]);
@@ -27,15 +31,15 @@ export function CollectionScreen() {
 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<ScheduledPayment | null>(null);
-    const [receiptAmount, setReceiptAmount] = useState('');
+    const [receiptData, setReceiptData] = useState<any>(null);
 
     // Fetch branches on mount
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await branchService.getBranchesAll(); // This now returns filtered list from backend
-                // Helper to extract data array if wrapped
+                const response = await branchService.getBranchesAll();
                 const data = Array.isArray(response) ? response : (response as any).data || [];
                 setBranches(data);
 
@@ -51,14 +55,46 @@ export function CollectionScreen() {
         fetchBranches();
     }, []);
 
-    // Fetch payments when branch or date changes
+    // Fetch centers when branch changes
+    useEffect(() => {
+        if (!selectedBranch) {
+            setCenters([]);
+            setSelectedCenter('');
+            return;
+        }
+
+        const fetchCenters = async () => {
+            try {
+                const response = await centerService.getCenters();
+                const allCenters = Array.isArray(response) ? response : (response as any).data || [];
+
+                // Filter centers by selected branch and active status
+                const filtered = allCenters.filter((c: any) =>
+                    String(c.branch_id) === selectedBranch && c.status === 'active'
+                );
+
+                setCenters(filtered);
+            } catch (error) {
+                console.error('Failed to fetch centers', error);
+                toast.error('Failed to load centers');
+            }
+        };
+
+        fetchCenters();
+    }, [selectedBranch]);
+
+    // Fetch payments when branch, center, or date changes
     useEffect(() => {
         if (!selectedBranch) return;
 
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const data = await collectionService.getDuePayments(selectedBranch, selectedDate);
+                const data = await collectionService.getDuePayments(
+                    selectedBranch,
+                    selectedCenter || undefined,
+                    selectedDate
+                );
                 setPayments(data.payments);
                 setStats(data.stats);
             } catch (error) {
@@ -70,30 +106,81 @@ export function CollectionScreen() {
         };
 
         fetchData();
-    }, [selectedBranch, selectedDate]);
+    }, [selectedBranch, selectedCenter, selectedDate]);
 
     const handleCollectPayment = (customer: ScheduledPayment) => {
         setSelectedCustomer(customer);
         setShowPaymentModal(true);
     };
 
-    const handleProcessPayment = (amount: string, type: 'full' | 'partial', method: string, remarks: string) => {
-        // In a real app, you would send this data to the backend here
-        console.log('Processing payment:', { amount, type, method, remarks, customer: selectedCustomer });
+    const handleShowHistory = (customer: ScheduledPayment) => {
+        setSelectedCustomer(customer);
+        setShowHistoryModal(true);
+    };
 
-        setReceiptAmount(amount);
-        setShowPaymentModal(false);
-        setShowReceiptPreview(true);
+    const handlePrintHistoryReceipt = async (payment: any) => {
+        if (!payment.receipt) return;
+        try {
+            // We need full receipt details including branch, center, etc.
+            // Let's assume we can fetch it or we already have enough in receiptData state if we update it.
+            // For now, let's just trigger the preview modal with what we have.
+            setReceiptData({
+                payment: payment,
+                receipt: payment.receipt,
+                // We'll need to make sure the preview modal can handle missing branch/staff info or fetch it.
+            });
+            setShowReceiptPreview(true);
+        } catch (error) {
+            toast.error("Failed to prepare receipt for printing");
+        }
+    };
+
+    const handleProcessPayment = async (amount: string, type: 'full' | 'partial', method: string, remarks: string) => {
+        if (!selectedCustomer) return;
+
+        try {
+            const paymentData = {
+                loan_id: selectedCustomer.id,
+                amount: parseFloat(amount),
+                payment_date: selectedDate,
+                receipt_number: `RCP-${Date.now()}-${selectedCustomer.id}`
+            };
+
+            const result = await collectionService.collectPayment(paymentData);
+
+            toast.success('Payment collected successfully!');
+            setReceiptData(result);
+            setShowPaymentModal(false);
+            setShowReceiptPreview(true);
+
+            // Refresh payment list
+            const data = await collectionService.getDuePayments(
+                selectedBranch,
+                selectedCenter || undefined,
+                selectedDate
+            );
+            setPayments(data.payments);
+            setStats(data.stats);
+
+        } catch (error: any) {
+            console.error('Failed to collect payment', error);
+            toast.error(error.message || 'Failed to collect payment');
+        }
     };
 
     const handlePrintReceipt = () => {
         window.print();
         setShowReceiptPreview(false);
+        setReceiptData(null);
     };
 
-    const getBranchName = () => {
-        const branch = branches.find(b => String(b.id) === selectedBranch);
-        return branch ? branch.branch_name : '';
+    const getCenterName = () => {
+        if (!selectedCenter) {
+            const branch = branches.find(b => String(b.id) === selectedBranch);
+            return branch ? branch.branch_name : '';
+        }
+        const center = centers.find(c => String(c.id) === selectedCenter);
+        return center ? center.center_name : '';
     };
 
     return (
@@ -107,8 +194,14 @@ export function CollectionScreen() {
             {/* Filter Section */}
             <CollectionFilters
                 branches={branches}
+                centers={centers}
                 selectedBranch={selectedBranch}
-                onBranchChange={setSelectedBranch}
+                selectedCenter={selectedCenter}
+                onBranchChange={(branchId) => {
+                    setSelectedBranch(branchId);
+                    setSelectedCenter('');
+                }}
+                onCenterChange={setSelectedCenter}
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
             />
@@ -126,8 +219,9 @@ export function CollectionScreen() {
                     ) : (
                         <ScheduledPaymentsTable
                             payments={payments}
-                            selectedCenter={getBranchName()} // Reusing prop name for display
+                            selectedCenter={getCenterName()}
                             onCollectPayment={handleCollectPayment}
+                            onShowHistory={handleShowHistory}
                         />
                     )}
                 </>
@@ -141,12 +235,24 @@ export function CollectionScreen() {
                 onProcessPayment={handleProcessPayment}
             />
 
+            {/* Payment History Modal */}
+            <PaymentHistoryModal
+                isOpen={showHistoryModal}
+                customer={selectedCustomer}
+                onClose={() => setShowHistoryModal(false)}
+                onPrintReceipt={handlePrintHistoryReceipt}
+            />
+
             {/* Receipt Preview Modal */}
             <ReceiptPreviewModal
                 isOpen={showReceiptPreview}
                 customer={selectedCustomer}
-                paymentAmount={receiptAmount}
-                onClose={() => setShowReceiptPreview(false)}
+                paymentAmount={receiptData?.payment?.last_payment_amount?.toString() || '0'}
+                receiptData={receiptData}
+                onClose={() => {
+                    setShowReceiptPreview(false);
+                    setReceiptData(null);
+                }}
                 onPrint={handlePrintReceipt}
             />
         </div>

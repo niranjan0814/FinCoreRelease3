@@ -102,6 +102,7 @@ class Loan extends Model
         'interest_rate',
         'end_term',
         'outstanding_amount',
+        'suspense_balance',
         'interest_rate_annum',
         'interest_rate_week',
         'service_charge',
@@ -132,6 +133,7 @@ class Loan extends Model
         'request_amount' => 'decimal:2',
         'approved_amount' => 'decimal:2',
         'outstanding_amount' => 'decimal:2',
+        'suspense_balance' => 'decimal:2',
         'interest_rate' => 'decimal:2',
         'interest_rate_annum' => 'decimal:2',
         'interest_rate_week' => 'decimal:2',
@@ -174,5 +176,15 @@ class Loan extends Model
     public function group()
     {
         return $this->belongsTo(Group::class, 'group_id');
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(CustomerLoanPayment::class, 'loan_id');
+    }
+
+    public function latestPayment()
+    {
+        return $this->hasOne(CustomerLoanPayment::class, 'loan_id')->latestOfMany();
     }
 }

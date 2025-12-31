@@ -309,7 +309,7 @@ export default function CustomersPage() {
                         <CustomerProfilePanel
                             customer={selectedCustomer}
                             onClose={() => setSelectedCustomer(null)}
-                            onRequestEdit={handleRequestEdit}
+                            onEdit={handleEdit}
                             onViewFullDetails={handleViewFullDetails}
                             onStatusChange={handleStatusChange}
                         />

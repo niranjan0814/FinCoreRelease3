@@ -243,6 +243,9 @@ class CustomerController extends Controller
         // Add more filters as needed
 
         $query->with(['branch', 'center', 'group', 'loans']);
+        $query->withCount(['loans as active_loans_count' => function ($q) {
+            $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
+        }]);
         $customers = $query->get();
         
         $message = $isFiltered 
@@ -261,7 +264,11 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        $customer = Customer::with(['branch', 'center', 'group', 'loans'])->find($id);
+        $customer = Customer::with(['branch', 'center', 'group', 'loans'])
+            ->withCount(['loans as active_loans_count' => function ($q) {
+                $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
+            }])
+            ->find($id);
 
         if (!$customer) {
             return response()->json([
@@ -402,7 +409,65 @@ class CustomerController extends Controller
         // ===== END NIC VALIDATION =====
 
         try {
+            $user = auth()->user();
+            $hasActiveLoans = $customer->loans()->where('status', \App\Models\Loan::STATUS_ACTIVE)->exists();
+
+            // 🛡️ Logic for Field Officer Editing
+            $isExplicitlyUnlocked = $customer->is_edit_locked === false; // Manager specifically unlocked it
+            $mustRequestApproval = $user->hasRole('field_officer') && $hasActiveLoans && !$isExplicitlyUnlocked;
+
+            if ($mustRequestApproval) {
+                // Check for existing pending request
+                $existingPending = \App\Models\CustomerEditRequest::where('customer_id', $id)
+                    ->where('status', 'pending')
+                    ->exists();
+
+                if ($existingPending) {
+                    return response()->json([
+                        'statusCode' => 4001,
+                        'message' => 'There is already a pending edit request for this customer.'
+                    ], 400);
+                }
+
+                // Create edit request instead of updating
+                $editRequest = \App\Models\CustomerEditRequest::create([
+                    'customer_id' => $id,
+                    'requested_by' => $user->id,
+                    'old_data' => $customer->toArray(),
+                    'new_data' => $validated,
+                    'status' => 'pending'
+                ]);
+
+                $customer->update([
+                    'edit_request_status' => 'pending',
+                    'is_edit_locked' => true
+                ]);
+
+                return response()->json([
+                    'statusCode' => 2020,
+                    'message' => 'Update request submitted for Manager approval.',
+                    'data' => $customer->load(['branch', 'center', 'group'])
+                ], 202);
+            }
+
+            // Otherwise, update directly (Admins, Managers, or Unlocked Field Officer)
             $customer->update($validated);
+
+            // 🔒 Re-lock if there are active loans to ensure future edits need approval
+            if ($hasActiveLoans) {
+                $customer->update([
+                    'is_edit_locked' => true,
+                    // keep edit_request_status as 'approved' or update to null
+                ]);
+            }
+
+            // If it was a manual fix by manager, reset flags
+            if (!$user->hasRole('field_officer')) {
+                $customer->update([
+                    'edit_request_status' => 'approved',
+                    'is_edit_locked' => false
+                ]);
+            }
 
             return response()->json([
                 'statusCode' => 2000,
