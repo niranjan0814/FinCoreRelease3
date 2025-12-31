@@ -27,7 +27,7 @@ class CollectionController extends Controller
             // Assuming 'Active' is the status for ongoing loans
             // We join with Center to filter by Branch
             $loans = Loan::with(['customer', 'group', 'center'])
-                ->where('status', 'Active')
+                ->where('status', Loan::STATUS_ACTIVE)
                 ->whereHas('center', function ($q) use ($branchId) {
                     $q->where('branch_id', $branchId);
                 })

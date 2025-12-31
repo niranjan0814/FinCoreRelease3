@@ -11,6 +11,81 @@ class Loan extends Model
 
     protected $table = 'loans';
 
+    // ============================================
+    // LOAN STATUS CONSTANTS
+    // ============================================
+    // Approval Workflow Statuses
+    const STATUS_PENDING_1ST = 'pending_1st';      // Awaiting 1st level approval
+    const STATUS_PENDING_2ND = 'pending_2nd';      // Awaiting 2nd level approval (for loans >= 200,000)
+    const STATUS_APPROVED = 'approved';            // Fully approved, ready for disbursement
+    const STATUS_SENT_BACK = 'sent_back';          // Returned to field officer for corrections
+
+    // Loan Lifecycle Statuses
+    const STATUS_ACTIVE = 'Active';                // Disbursed and currently being collected
+    const STATUS_COMPLETED = 'Completed';          // Fully paid off
+    const STATUS_REJECTED = 'Rejected';            // Permanently rejected
+
+    // All Possible Statuses
+    const STATUSES = [
+        self::STATUS_PENDING_1ST,
+        self::STATUS_PENDING_2ND,
+        self::STATUS_APPROVED,
+        self::STATUS_SENT_BACK,
+        self::STATUS_ACTIVE,
+        self::STATUS_COMPLETED,
+        self::STATUS_REJECTED,
+    ];
+
+    // Statuses considered "active" (loan is ongoing)
+    const ACTIVE_STATUSES = [
+        self::STATUS_PENDING_1ST,
+        self::STATUS_PENDING_2ND,
+        self::STATUS_APPROVED,
+        self::STATUS_SENT_BACK,
+        self::STATUS_ACTIVE,
+    ];
+
+    // Statuses considered "closed" (loan is finished)
+    const CLOSED_STATUSES = [
+        self::STATUS_COMPLETED,
+        self::STATUS_REJECTED,
+    ];
+
+    // Status display labels for UI
+    const STATUS_LABELS = [
+        self::STATUS_PENDING_1ST => 'Pending 1st Approval',
+        self::STATUS_PENDING_2ND => 'Pending 2nd Approval',
+        self::STATUS_APPROVED => 'Approved',
+        self::STATUS_SENT_BACK => 'Sent Back',
+        self::STATUS_ACTIVE => 'Active',
+        self::STATUS_COMPLETED => 'Completed',
+        self::STATUS_REJECTED => 'Rejected',
+    ];
+
+    /**
+     * Get the display label for the current status.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return self::STATUS_LABELS[$this->status] ?? ucfirst(str_replace('_', ' ', $this->status));
+    }
+
+    /**
+     * Check if the loan is in an active/ongoing state.
+     */
+    public function isActive(): bool
+    {
+        return in_array($this->status, self::ACTIVE_STATUSES);
+    }
+
+    /**
+     * Check if the loan is closed (completed or rejected).
+     */
+    public function isClosed(): bool
+    {
+        return in_array($this->status, self::CLOSED_STATUSES);
+    }
+
     protected $fillable = [
         'product_id',
         'CSU_id',
@@ -48,6 +123,7 @@ class Loan extends Model
         'guardian_name',
         'guardian_address',
         'guardian_phone',
+        'rejection_reason',
     ];
 
     protected $casts = [

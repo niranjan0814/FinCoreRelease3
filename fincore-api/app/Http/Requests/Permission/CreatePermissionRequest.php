@@ -15,7 +15,7 @@ class CreatePermissionRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255|unique:permissions,name',
-            'display_name' => 'required|string|max:255',
+            'display_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'permission_group_id' => 'nullable|exists:permission_groups,id',
             'module' => 'nullable|string|max:100',
