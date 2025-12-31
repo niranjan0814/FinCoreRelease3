@@ -60,6 +60,42 @@ class PermissionService
     {
         $data['name'] = Str::slug($data['name'], '.');
         $data['guard_name'] = $data['guard_name'] ?? 'web';
+
+        // Auto-assign group if name uses dot notation and no group is provided
+        if (empty($data['permission_group_id']) && str_contains($data['name'], '.')) {
+            $parts = explode('.', $data['name']);
+            $module = $parts[0]; // 'collection'
+            $action = end($parts); // 'view'
+            
+            // Normalize slug to match seeder convention (e.g., 'collection' -> 'collection-management')
+            $groupSlug = Str::slug($module . ' management');
+            
+            // Find or create group with 'Management' naming convention
+            $group = PermissionGroup::firstOrCreate(
+                ['slug' => $groupSlug],
+                [
+                    'name' => Str::title($module) . ' Management', // 'Collection Management'
+                    'description' => 'Manage ' . Str::title($module) . ' related permissions',
+                    'icon' => 'folder-open', // Default icon
+                    'color' => 'blue',       // Default color
+                    'is_active' => true,
+                    'order' => 99
+                ]
+            );
+            
+            $data['permission_group_id'] = $group->id;
+            
+            // Auto-fill module if missing
+            if (empty($data['module'])) {
+                $data['module'] = $module;
+            }
+            
+            // Auto-fill display name if missing
+            if (empty($data['display_name'])) {
+                // 'collection.view' -> 'View Collection'
+                $data['display_name'] = Str::title(str_replace(['_', '-'], ' ', $action) . ' ' . $module);
+            }
+        }
         
         return Permission::create($data);
     }

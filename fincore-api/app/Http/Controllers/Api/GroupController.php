@@ -188,6 +188,39 @@ class GroupController extends Controller
 
             // Sync Customers' group assignment
             if (isset($validated['customer_ids'])) {
+                // Get current members
+                $currentMemberIds = \App\Models\Customer::where('grp_id', $group->id)->pluck('id')->toArray();
+                $newMemberIds = $validated['customer_ids'] ?? [];
+
+                // Identify members being removed
+                $removedMemberIds = array_diff($currentMemberIds, $newMemberIds);
+
+                if (!empty($removedMemberIds)) {
+                    // Check if any removed member has active loans
+                    // Active loans: Status is NOT in CLOSED_STATUSES AND Outstanding Amount > 0
+                    $customersWithActiveLoans = \App\Models\Loan::whereIn('customer_id', $removedMemberIds)
+                        ->whereNotIn('status', \App\Models\Loan::CLOSED_STATUSES)
+                        ->where('outstanding_amount', '>', 0)
+                        ->with('customer')
+                        ->get();
+
+                    if ($customersWithActiveLoans->isNotEmpty()) {
+                        $names = $customersWithActiveLoans->unique('customer_id')
+                            ->pluck('customer.full_name')
+                            ->join(', ');
+                            
+                        return response()->json([
+                            'status_code' => 4090,
+                            'http_code' => 409,
+                            'status' => 'error',
+                            'message' => "Cannot remove members with active loans: {$names}. Loans must be fully paid first.",
+                            'errors' => [
+                                'customer_ids' => ["Cannot remove members with active loans: {$names}"]
+                            ]
+                        ], 409);
+                    }
+                }
+
                 // Remove group ID from customers previously in this group
                 \App\Models\Customer::where('grp_id', $group->id)->update(['grp_id' => null]);
 

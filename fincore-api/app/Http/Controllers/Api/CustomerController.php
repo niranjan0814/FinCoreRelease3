@@ -242,7 +242,7 @@ class CustomerController extends Controller
         }
         // Add more filters as needed
 
-        $query->with(['branch', 'center', 'group']);
+        $query->with(['branch', 'center', 'group', 'loans']);
         $customers = $query->get();
         
         $message = $isFiltered 
@@ -261,7 +261,7 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        $customer = Customer::with(['branch', 'center', 'group'])->find($id);
+        $customer = Customer::with(['branch', 'center', 'group', 'loans'])->find($id);
 
         if (!$customer) {
             return response()->json([

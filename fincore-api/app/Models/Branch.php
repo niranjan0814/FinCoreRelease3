@@ -23,4 +23,9 @@ class Branch extends Model
     protected $casts = [
         'staff_ids' => 'array',
     ];
+
+    public function manager()
+    {
+        return $this->hasOne(Staff::class, 'branch_id')->where('work_info->designation', 'manager');
+    }
 }

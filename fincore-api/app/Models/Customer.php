@@ -195,4 +195,9 @@ class Customer extends Model
     {
         return $this->belongsTo(Group::class, 'grp_id');
     }
+
+    public function loans()
+    {
+        return $this->hasMany(Loan::class, 'customer_id');
+    }
 }
