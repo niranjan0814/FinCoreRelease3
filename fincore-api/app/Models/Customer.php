@@ -168,6 +168,8 @@ class Customer extends Model
         'sector',
         'sub_sector',
         'status', // Customer status (active, blocked, left)
+        'edit_request_status',
+        'is_edit_locked',
     ];
 
     protected $casts = [

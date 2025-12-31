@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { X, Phone, Mail, MapPin, Building, Eye, ShieldAlert, ArrowRightLeft } from 'lucide-react';
+import { X, Phone, Mail, MapPin, Building, Eye, ShieldAlert, ShieldCheck, ArrowRightLeft } from 'lucide-react';
 import { Customer } from '../../types/customer.types';
 import CenterTransferModal from './CenterTransferModal';
 
 interface CustomerProfilePanelProps {
     customer: Customer;
     onClose: () => void;
-    onRequestEdit: () => void;
+    onEdit: (customer: Customer) => void;
     onViewFullDetails: () => void;
 }
 
-export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewFullDetails }: CustomerProfilePanelProps) {
+export function CustomerProfilePanel({ customer, onClose, onEdit, onViewFullDetails }: CustomerProfilePanelProps) {
     const [showTransferModal, setShowTransferModal] = useState(false);
+    const hasActiveLoans = (customer as any).active_loans_count > 0;
+    const isPendingApproval = customer.edit_request_status === 'pending';
+    const isUnlocked = customer.is_edit_locked === false && hasActiveLoans;
 
     return (
         <>
@@ -97,25 +100,47 @@ export function CustomerProfilePanel({ customer, onClose, onRequestEdit, onViewF
                         </div>
                     </div>
 
-                    {/* Warning Alert */}
-                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-xl p-4 flex gap-3">
-                        <ShieldAlert className="w-5 h-5 text-orange-600 dark:text-orange-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h4 className="text-sm font-bold text-orange-800 dark:text-orange-200">Edit Protection Active</h4>
-                            <p className="text-xs text-orange-600 dark:text-orange-300 mt-1 leading-relaxed">
-                                Admin approval required for profile edits
-                            </p>
+                    {/* Warning/Status Alert */}
+                    {(hasActiveLoans || isPendingApproval) && (
+                        <div className={`
+                            ${isPendingApproval ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-100' :
+                                isUnlocked ? 'bg-green-50 dark:bg-green-900/20 border-green-100' :
+                                    'bg-orange-50 dark:bg-orange-900/20 border-orange-100'} 
+                            border rounded-xl p-4 flex gap-3`}
+                        >
+                            {isUnlocked ? (
+                                <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            ) : (
+                                <ShieldAlert className={`w-5 h-5 ${isPendingApproval ? 'text-amber-600' : 'text-orange-600'} flex-shrink-0 mt-0.5`} />
+                            )}
+                            <div>
+                                <h4 className={`text-sm font-bold ${isPendingApproval ? 'text-amber-800' : isUnlocked ? 'text-green-800' : 'text-orange-800'}`}>
+                                    {isPendingApproval ? 'Pending Approval' : isUnlocked ? 'Profile Unlocked' : 'Edit Protection Active'}
+                                </h4>
+                                <p className={`text-xs ${isPendingApproval ? 'text-amber-600' : isUnlocked ? 'text-green-600' : 'text-orange-600'} mt-1 leading-relaxed`}>
+                                    {isPendingApproval
+                                        ? 'A change request is currently under review.'
+                                        : isUnlocked
+                                            ? 'Manager has approved access for direct profile correction.'
+                                            : 'Manager approval required for profile changes.'
+                                    }
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex flex-col gap-3 mt-2">
                         <button
-                            onClick={onRequestEdit}
-                            className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                            onClick={() => onEdit(customer)}
+                            disabled={isPendingApproval}
+                            className={`w-full py-3 ${isPendingApproval ? 'bg-gray-400' :
+                                isUnlocked ? 'bg-green-600 hover:bg-green-700' :
+                                    'bg-orange-600 hover:bg-orange-700'
+                                } text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg ${isUnlocked ? 'shadow-green-500/20' : 'shadow-orange-500/20'} disabled:shadow-none disabled:cursor-not-allowed`}
                         >
-                            <ShieldAlert className="w-4 h-4" />
-                            Request Edit Approval
+                            {isUnlocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                            {isPendingApproval ? 'Approval in Progress' : isUnlocked ? 'Apply Direct Correction' : 'Edit Profile Details'}
                         </button>
 
                         <button

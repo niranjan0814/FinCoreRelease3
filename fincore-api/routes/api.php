@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CenterChangeRequestController;
+use App\Http\Controllers\Api\CustomerEditRequestController;
 use App\Http\Controllers\Api\ShareholderController;
 
 /*
@@ -253,6 +254,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Receipts
         Route::prefix('receipts')->group(function () {
             Route::post('/', [App\Http\Controllers\Api\ReceiptController::class, 'store']);
+            Route::get('/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show']);
             Route::post('/{id}/cancel-request', [App\Http\Controllers\Api\ReceiptController::class, 'requestCancellation']);
             Route::post('/{id}/approve-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'approveCancellation']);
         });
@@ -262,6 +264,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Collections
         Route::get('/collections/due', [App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
+        Route::post('/collections/collect', [App\Http\Controllers\Api\CollectionController::class, 'collectPayment'])->middleware('permission:receipts.create');
+        Route::get('/collections/history/{loanId}', [App\Http\Controllers\Api\CollectionController::class, 'getCollectionHistory'])->middleware('permission:collections.view');
 
         // Center Change Requests
         Route::prefix('center-requests')->group(function () {
@@ -307,6 +311,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/{role}', [RoleController::class, 'show'])->middleware('permission:roles.view');
             Route::put('/{role}', [RoleController::class, 'update'])->middleware('permission:roles.edit');
             Route::delete('/{role}', [RoleController::class, 'destroy'])->middleware('permission:roles.delete');
+        });
+
+        // Customer Edit Requests
+        Route::prefix('customer-edit-requests')->group(function () {
+            Route::get('/', [CustomerEditRequestController::class, 'index'])->middleware('permission:customers.edit');
+            Route::post('/{id}/approve', [CustomerEditRequestController::class, 'approve'])->middleware('permission:customers.edit');
+            Route::post('/{id}/reject', [CustomerEditRequestController::class, 'reject'])->middleware('permission:customers.edit');
         });
 
         // Shareholders

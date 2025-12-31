@@ -105,6 +105,37 @@ class ReceiptController extends Controller
     }
 
     /**
+     * Get receipt details (for printing)
+     */
+    public function show($id)
+    {
+        try {
+            $receipt = Receipt::with([
+                'staff', 
+                'customer', 
+                'loan.product',
+                'center.branch', 
+                'group'
+            ])->findOrFail($id);
+            
+            // Increment copy count if viewed for printing
+            $receipt->increment('copy_count');
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $receipt
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Receipt not found',
+                'error' => $e->getMessage()
+            ], 404);
+        }
+    }
+
+    /**
      * Approve cancellation (Manager/Admin only)
      */
     public function approveCancellation(Request $request, $id)

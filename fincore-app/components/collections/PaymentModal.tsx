@@ -18,7 +18,7 @@ export function PaymentModal({ isOpen, customer, onClose, onProcessPayment }: Pa
 
     useEffect(() => {
         if (customer && isOpen) {
-            setPaymentAmount(String(customer.dueAmount + customer.arrears));
+            setPaymentAmount(String(customer.dueAmount));
             setPaymentType('full');
             setPaymentMethod('cash');
             setRemarks('');
@@ -59,18 +59,24 @@ export function PaymentModal({ isOpen, customer, onClose, onProcessPayment }: Pa
                                 <span className="font-medium text-gray-900">{customer.contractNo}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Due Amount:</span>
-                                <span className="font-medium text-gray-900">LKR {customer.dueAmount.toLocaleString()}</span>
+                                <span className="text-gray-600">Standard Rental:</span>
+                                <span className="font-medium text-gray-900">LKR {customer.standardRental.toLocaleString()}</span>
                             </div>
                             {customer.arrears > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Arrears:</span>
-                                    <span className="font-medium text-red-600">LKR {customer.arrears.toLocaleString()}</span>
+                                    <span className="font-medium text-red-600">+ LKR {customer.arrears.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {customer.suspense_balance > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Suspense Balance (Advance):</span>
+                                    <span className="font-medium text-green-600">- LKR {customer.suspense_balance.toLocaleString()}</span>
                                 </div>
                             )}
                             <div className="flex justify-between pt-2 border-t border-gray-300">
-                                <span className="text-gray-900 font-semibold">Total Payable:</span>
-                                <span className="font-bold text-gray-900">LKR {(customer.dueAmount + customer.arrears).toLocaleString()}</span>
+                                <span className="text-gray-900 font-bold uppercase tracking-wider text-[11px]">Amount to Collect:</span>
+                                <span className="font-black text-blue-600 text-lg">LKR {customer.dueAmount.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>

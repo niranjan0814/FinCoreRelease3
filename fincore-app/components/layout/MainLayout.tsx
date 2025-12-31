@@ -132,6 +132,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     // Determine current page ID from pathname
     const getCurrentPage = (): Page => {
         if (pathname === '/' || pathname === '/dashboard') return 'dashboard';
+        if (pathname === '/customers/requests') return 'customer-requests';
 
         // Extract the first segment after the slash
         const segments = pathname.split('/').filter(Boolean);
@@ -156,6 +157,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'loan-list': '/loans',
             'loan-product': '/loan-product',
             'roles-privileges': '/roles-privileges',
+            'customer-requests': '/customers/requests',
         };
 
         const path = routeMap[pageId as string] || `/${pageId}`;

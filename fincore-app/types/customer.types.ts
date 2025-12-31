@@ -73,6 +73,10 @@ export interface Customer {
     center?: any;
     group?: any;
     loans?: any[];
+
+    // Approval Flow
+    edit_request_status?: 'pending' | 'approved' | 'rejected' | null;
+    is_edit_locked?: boolean;
 }
 
 export interface CustomerStats {

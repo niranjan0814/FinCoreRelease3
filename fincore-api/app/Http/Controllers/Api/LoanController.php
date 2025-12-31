@@ -216,14 +216,30 @@ class LoanController extends Controller
                         $loan->status = Loan::STATUS_PENDING_2ND;
                         $loan->approval_level = 1;
                     } else {
-                        $loan->status = Loan::STATUS_APPROVED;
-                        $loan->approval_level = 2; // Fully approved
+                        $loan->status = Loan::STATUS_ACTIVE;
+                        $loan->approval_level = 2;
+                        
+                        // Ensure rental is calculated before creating record
+                        if (!$loan->rentel || $loan->rentel <= 0) {
+                            $loan->rentel = $this->calculateRental($loan);
+                            $loan->save();
+                        }
+                        
+                        $this->createInitialPaymentRecord($loan);
                     }
                 } elseif ($loan->approval_level === 1) {
                     // Second level approval
                     $history['second'] = $approver;
-                    $loan->status = Loan::STATUS_APPROVED;
+                    $loan->status = Loan::STATUS_ACTIVE;
                     $loan->approval_level = 2;
+                    
+                    // Ensure rental is calculated before creating record
+                    if (!$loan->rentel || $loan->rentel <= 0) {
+                        $loan->rentel = $this->calculateRental($loan);
+                        $loan->save();
+                    }
+                    
+                    $this->createInitialPaymentRecord($loan);
                 }
                 $loan->approve_history = $history;
             } else {
@@ -257,7 +273,7 @@ class LoanController extends Controller
             $loan = Loan::findOrFail($id);
 
             // Prevent editing if loan is active (approved)
-            if ($loan->status === 'approved' || $loan->status === 'Active') {
+            if ($loan->status === Loan::STATUS_APPROVED || $loan->status === Loan::STATUS_ACTIVE) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Cannot edit an active or approved loan.'
@@ -301,7 +317,7 @@ class LoanController extends Controller
             $loan = Loan::findOrFail($id);
 
             // Prevent deletion if loan is active (approved)
-            if ($loan->status === 'approved' || $loan->status === 'Active') {
+            if ($loan->status === Loan::STATUS_APPROVED || $loan->status === Loan::STATUS_ACTIVE) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Cannot delete an active or approved loan.'
@@ -321,5 +337,44 @@ class LoanController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+    /**
+     * Create the initial opening balance record in customer_loan_payment table
+     */
+    private function createInitialPaymentRecord($loan)
+    {
+        \App\Models\CustomerLoanPayment::create([
+            'customer_id' => $loan->customer_id,
+            'loan_id' => $loan->id,
+            'receipt_id' => null,
+            'last_payment_amount' => 0,
+            'last_payment_date' => now(),
+            'full_balance' => $loan->approved_amount,
+            'current_balance_amount' => $loan->approved_amount,
+            'current_capital_balance' => $loan->approved_amount,
+            'current_balance_interest' => 0,
+            'interest_amount' => 0,
+            'rental_amount' => $loan->rentel,
+            'total_due' => $loan->rentel,
+            'remained_due' => $loan->rentel,
+            'arrears' => 0,
+            'arrears_age' => 0,
+        ]);
+    }
+
+    /**
+     * Helper to calculate the rental amount for a loan
+     */
+    private function calculateRental($loan)
+    {
+        $principal = $loan->approved_amount;
+        $interestRate = $loan->interest_rate / 100;
+        $terms = $loan->terms;
+
+        if ($terms <= 0) return 0;
+
+        // Formula: (Principal + Total Interest) / Number of Terms
+        $totalInterest = $principal * $interestRate;
+        return round(($principal + $totalInterest) / $terms, 2);
     }
 }
