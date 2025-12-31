@@ -32,11 +32,9 @@ export const ApprovalFilters: React.FC<ApprovalFiltersProps> = ({
                     onChange={(e) => onStatusChange(e.target.value)}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                    <option value="all">All Status</option>
+                    <option value="all">All Pending</option>
                     <option value="Pending 1st">Pending 1st Approval</option>
                     <option value="Pending 2nd">Pending 2nd Approval</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Sent Back">Sent Back</option>
                 </select>
             </div>
         </div>

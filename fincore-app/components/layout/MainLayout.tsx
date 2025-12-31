@@ -11,7 +11,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 export type Page =
     | 'dashboard' | 'branches' | 'centers' | 'groups' | 'customers'
-    | 'loan-create' | 'loan-approval' | 'loan-list' | 'loan-product'
+    | 'loan-create' | 'loan-approval' | 'loan-sent-back' | 'loan-list' | 'loan-product'
     | 'due-list' | 'collections' | 'collection-summary'
     | 'reports'
     | 'finance' | 'fund-transactions' | 'branch-transactions'
@@ -152,6 +152,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'customers': '/customers',
             'loan-create': '/loans/create',
             'loan-approval': '/loans/approval',
+            'loan-sent-back': '/loans/sent-back',
             'loan-list': '/loans',
             'loan-product': '/loan-product',
             'roles-privileges': '/roles-privileges',

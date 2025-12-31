@@ -5,6 +5,7 @@ import { CustomerRecord, LoanFormData } from '@/types/loan.types';
 import { Center } from '@/types/center.types';
 import { Group } from '@/types/group.types';
 import { Staff } from '@/types/staff.types';
+import { isValidNIC, extractGenderFromNIC } from '@/utils/loan.utils';
 
 interface CustomerSelectionProps {
     formData: LoanFormData;
@@ -18,6 +19,7 @@ interface CustomerSelectionProps {
     onCustomerChange: (value: string) => void;
     onFieldChange: (field: keyof LoanFormData, value: string) => void;
     staffs: Staff[];
+    isAutoFilling?: boolean;
 }
 
 export const CustomerSelection: React.FC<CustomerSelectionProps> = ({
@@ -32,6 +34,7 @@ export const CustomerSelection: React.FC<CustomerSelectionProps> = ({
     onCustomerChange,
     onFieldChange,
     staffs,
+    isAutoFilling = false,
 }) => {
     return (
         <div className="space-y-6">
@@ -39,13 +42,20 @@ export const CustomerSelection: React.FC<CustomerSelectionProps> = ({
 
             <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Search by NIC</label>
-                <input
-                    type="text"
-                    value={formData.nic}
-                    onChange={(e) => onNicChange(e.target.value)}
-                    placeholder="Enter NIC to auto-fill"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
+                <div className="relative">
+                    <input
+                        type="text"
+                        value={formData.nic}
+                        onChange={(e) => onNicChange(e.target.value)}
+                        placeholder="Enter NIC to auto-fill"
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${isAutoFilling ? 'pr-10' : ''}`}
+                    />
+                    {isAutoFilling && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                     Enter NIC to auto-fill center, group, and customer
                 </p>
@@ -143,9 +153,26 @@ export const CustomerSelection: React.FC<CustomerSelectionProps> = ({
                                     value={formData.guardian_nic}
                                     onChange={(e) => onNicChange(e.target.value, true)}
                                     placeholder="Enter Guardian NIC"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formData.guardian_nic && !isValidNIC(formData.guardian_nic) ? 'border-red-500 bg-red-50' :
+                                        formData.guardian_nic && extractGenderFromNIC(formData.guardian_nic) !== 'Male' ? 'border-orange-500 bg-orange-50' :
+                                            'border-gray-300'
+                                        }`}
                                     required
                                 />
+                                {formData.guardian_nic && !isValidNIC(formData.guardian_nic) && (
+                                    <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-wider">Invalid NIC Format</p>
+                                )}
+                                {formData.guardian_nic && isValidNIC(formData.guardian_nic) && (
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                        <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${extractGenderFromNIC(formData.guardian_nic) === 'Male' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            }`}>
+                                            Gender: {extractGenderFromNIC(formData.guardian_nic)}
+                                        </div>
+                                        {extractGenderFromNIC(formData.guardian_nic) !== 'Male' && (
+                                            <p className="text-[10px] text-red-600 font-bold">Guardian must be Male</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-900 mb-2">Guardian Name *</label>
@@ -176,9 +203,13 @@ export const CustomerSelection: React.FC<CustomerSelectionProps> = ({
                                     value={formData.guardian_phone}
                                     onChange={(e) => onFieldChange('guardian_phone', e.target.value)}
                                     placeholder="Enter Guardian Phone Number"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formData.guardian_phone && !/^\d{10}$/.test(formData.guardian_phone) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                        }`}
                                     required
                                 />
+                                {formData.guardian_phone && !/^\d{10}$/.test(formData.guardian_phone) && (
+                                    <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-wider">Must be 10 digits</p>
+                                )}
                             </div>
                         </div>
                     </div>

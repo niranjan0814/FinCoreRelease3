@@ -1,3 +1,5 @@
+import { Loan } from './loan.types';
+
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Sent Back' | null;
 export type LoanStatus = 'Pending 1st' | 'Pending 2nd' | 'Approved' | 'Sent Back';
 
@@ -7,6 +9,7 @@ export interface LoanDetails {
     interestRate: number;
     center: string;
     group: string;
+    branchManager: string;
 }
 
 export interface LoanApprovalItem {
@@ -26,7 +29,9 @@ export interface LoanApprovalItem {
     secondApprovalBy?: string;
     secondApprovalDate?: string;
     status: LoanStatus;
+    rejectionReason?: string;
     loanDetails: LoanDetails;
+    rawLoan: Loan;
 }
 
 export interface LoanApprovalFilters {

@@ -11,22 +11,37 @@ interface LoanProductFormProps {
     initialData?: LoanProduct | null;
 }
 
-const defaultFormData: LoanProductFormData = {
+const defaultFormData: LocalFormData = {
     product_name: '',
     product_details: '',
     term_type: 'Monthly',
     regacine: '',
-    interest_rate: 0,
-    loan_limited_amount: 0,
-    loan_amount: 0,
+    interest_rate: '',
+    loan_limited_amount: '',
+    loan_amount: '',
     loan_term: 12,
     customer_age_limited: 18,
-    customer_monthly_income: 0,
-    guarantor_monthly_income: 0,
+    customer_monthly_income: '',
+    guarantor_monthly_income: '',
 };
 
+// Local interface to handle input state where fields can be empty strings
+interface LocalFormData {
+    product_name: string;
+    product_details: string;
+    term_type: string;
+    regacine: string;
+    interest_rate: string | number;
+    loan_limited_amount: string | number;
+    loan_amount: string | number;
+    loan_term: string | number;
+    customer_age_limited: string | number;
+    customer_monthly_income: string | number;
+    guarantor_monthly_income: string | number;
+}
+
 export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanProductFormProps) {
-    const [formData, setFormData] = useState<LoanProductFormData>(defaultFormData);
+    const [formData, setFormData] = useState<LocalFormData>(defaultFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -36,13 +51,13 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                 product_details: initialData.product_details || '',
                 term_type: initialData.term_type,
                 regacine: initialData.regacine || '',
-                interest_rate: Number(initialData.interest_rate),
-                loan_limited_amount: Number(initialData.loan_limited_amount),
-                loan_amount: Number(initialData.loan_amount),
+                interest_rate: initialData.interest_rate,
+                loan_limited_amount: initialData.loan_limited_amount !== null ? initialData.loan_limited_amount : '',
+                loan_amount: initialData.loan_amount,
                 loan_term: initialData.loan_term,
-                customer_age_limited: initialData.customer_age_limited || 18,
-                customer_monthly_income: Number(initialData.customer_monthly_income),
-                guarantor_monthly_income: Number(initialData.guarantor_monthly_income),
+                customer_age_limited: initialData.customer_age_limited !== null ? initialData.customer_age_limited : '',
+                customer_monthly_income: initialData.customer_monthly_income !== null ? initialData.customer_monthly_income : '',
+                guarantor_monthly_income: initialData.guarantor_monthly_income !== null ? initialData.guarantor_monthly_income : '',
             });
         } else {
             setFormData(defaultFormData);
@@ -54,9 +69,15 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
 
         if (!formData.product_name.trim()) newErrors.product_name = 'Product name is required';
         if (!formData.term_type) newErrors.term_type = 'Term type is required';
-        if (formData.interest_rate < 0 || formData.interest_rate > 100) newErrors.interest_rate = 'Interest rate must be between 0 and 100';
-        if (formData.loan_amount <= 0) newErrors.loan_amount = 'Loan amount must be greater than 0';
-        if (formData.loan_term <= 0) newErrors.loan_term = 'Loan term must be greater than 0';
+
+        const interestRate = Number(formData.interest_rate);
+        if (formData.interest_rate === '' || interestRate < 0 || interestRate > 100) newErrors.interest_rate = 'Interest rate must be between 0 and 100';
+
+        const loanAmount = Number(formData.loan_amount);
+        if (formData.loan_amount === '' || loanAmount <= 0) newErrors.loan_amount = 'Loan amount must be greater than 0';
+
+        const loanTerm = Number(formData.loan_term);
+        if (formData.loan_term === '' || loanTerm <= 0) newErrors.loan_term = 'Loan term must be greater than 0';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -64,7 +85,21 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
 
     const handleSubmit = () => {
         if (validate()) {
-            onSave(formData);
+            // Convert local string/number state to strict number format for API
+            const payload: LoanProductFormData = {
+                product_name: formData.product_name,
+                product_details: formData.product_details,
+                term_type: formData.term_type,
+                regacine: formData.regacine,
+                interest_rate: Number(formData.interest_rate),
+                loan_amount: Number(formData.loan_amount),
+                loan_term: Number(formData.loan_term),
+                loan_limited_amount: formData.loan_limited_amount !== '' ? Number(formData.loan_limited_amount) : undefined,
+                customer_age_limited: formData.customer_age_limited !== '' ? Number(formData.customer_age_limited) : undefined,
+                customer_monthly_income: formData.customer_monthly_income !== '' ? Number(formData.customer_monthly_income) : undefined,
+                guarantor_monthly_income: formData.guarantor_monthly_income !== '' ? Number(formData.guarantor_monthly_income) : undefined,
+            };
+            onSave(payload);
         }
     };
 
@@ -123,7 +158,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                                 type="number"
                                 step="0.01"
                                 value={formData.interest_rate}
-                                onChange={(e) => setFormData({ ...formData, interest_rate: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
                                 className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${errors.interest_rate ? 'border-red-500' : 'border-gray-300'}`}
                             />
                             {errors.interest_rate && <p className="text-red-500 text-xs mt-1">{errors.interest_rate}</p>}
@@ -135,7 +170,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.loan_amount}
-                                onChange={(e) => setFormData({ ...formData, loan_amount: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, loan_amount: e.target.value })}
                                 className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${errors.loan_amount ? 'border-red-500' : 'border-gray-300'}`}
                             />
                             {errors.loan_amount && <p className="text-red-500 text-xs mt-1">{errors.loan_amount}</p>}
@@ -147,7 +182,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.loan_term}
-                                onChange={(e) => setFormData({ ...formData, loan_term: parseInt(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, loan_term: e.target.value })}
                                 className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${errors.loan_term ? 'border-red-500' : 'border-gray-300'}`}
                             />
                             {errors.loan_term && <p className="text-red-500 text-xs mt-1">{errors.loan_term}</p>}
@@ -171,7 +206,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.loan_limited_amount}
-                                onChange={(e) => setFormData({ ...formData, loan_limited_amount: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, loan_limited_amount: e.target.value })}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             />
                         </div>
@@ -182,7 +217,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.customer_age_limited}
-                                onChange={(e) => setFormData({ ...formData, customer_age_limited: parseInt(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, customer_age_limited: e.target.value })}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             />
                         </div>
@@ -193,7 +228,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.customer_monthly_income}
-                                onChange={(e) => setFormData({ ...formData, customer_monthly_income: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, customer_monthly_income: e.target.value })}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             />
                         </div>
@@ -204,7 +239,7 @@ export function LoanProductForm({ isOpen, onClose, onSave, initialData }: LoanPr
                             <input
                                 type="number"
                                 value={formData.guarantor_monthly_income}
-                                onChange={(e) => setFormData({ ...formData, guarantor_monthly_income: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, guarantor_monthly_income: e.target.value })}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             />
                         </div>
