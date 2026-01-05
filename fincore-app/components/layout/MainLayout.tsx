@@ -32,8 +32,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const checkAuth = async () => {
-            // If on login or forgot-password page, we don't need to check auth to render
-            if (pathname === '/login' || pathname === '/forgot-password') {
+            // If on login or public auth pages, we don't need to check auth to render
+            if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/reset-password') {
                 setIsLoading(false);
                 return;
             }
@@ -110,7 +110,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     }
 
     // If we are on the login, forgot-password page (or any other public page), render children directly without the shell
-    if (pathname === '/login' || pathname === '/forgot-password' || !user) {
+    if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/reset-password' || !user) {
         return (
             <>
                 <ToastContainer

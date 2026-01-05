@@ -178,7 +178,7 @@ class CenterController extends Controller
                 'location' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
                 'group_count' => 'nullable|integer|min:0',
-                'status' => 'nullable|string|in:active,inactive,rejected',
+                'status' => 'nullable|string|in:active,inactive,rejected,disabled',
             ]);
 
             // If the center was rejected and is being updated, set it back to inactive (pending)
@@ -191,6 +191,37 @@ class CenterController extends Controller
             if ($user && $user->hasRole('field_officer')) {
                 if (isset($validated['status']) && $validated['status'] === 'active') {
                     unset($validated['status']);
+                }
+            }
+
+            // Prevent disabling center if there are active loans, groups or customers
+            if ($request->status === 'disabled') {
+                $hasActiveLoans = \App\Models\Loan::where('CSU_id', $id)
+                    ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+                    ->exists();
+
+                if ($hasActiveLoans) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Cannot disable center',
+                        'error' => 'This center has active or pending loans. All loans must be completed or rejected before disabling the center.'
+                    ], 409);
+                }
+
+                if ($center->groups()->count() > 0) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Cannot disable center',
+                        'error' => 'This center has associated groups. All groups must be removed or moved before disabling the center.'
+                    ], 409);
+                }
+
+                if ($center->customers()->count() > 0) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Cannot disable center',
+                        'error' => 'This center has associated customers. All customers must be removed or moved before disabling the center.'
+                    ], 409);
                 }
             }
 

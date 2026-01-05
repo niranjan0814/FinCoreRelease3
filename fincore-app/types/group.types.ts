@@ -15,6 +15,8 @@ export interface Group {
     center_id: string;
     branch_id?: string;
     member_count?: number;
+    customers_count?: number;
+    loans_count?: number;
     created_at?: string;
     updated_at?: string;
     status: 'active' | 'inactive';
@@ -24,6 +26,12 @@ export interface Group {
         id: number;
         center_name: string;
         CSU_id: string;
+        branch_id?: number;
+        branch?: {
+            id: number;
+            branch_id: string;
+            branch_name: string;
+        };
     };
     branch?: {
         id: number;

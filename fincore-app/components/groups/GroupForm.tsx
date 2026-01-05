@@ -192,6 +192,8 @@ export function GroupForm({ isOpen, onClose, onSubmit, initialData }: GroupFormP
                         </select>
                     </div>
 
+
+
                     {/* Customer Selection Logic */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">

@@ -227,7 +227,9 @@ export function CenterForm({ isOpen, onClose, onSubmit, initialData }: CenterFor
             staff_id: currentUserRole === 'field_officer' ? (currentUser?.user_name || null) : ((formData.get('contactPerson') as string) || null),
             address: formData.get('address') as string,
             location: formData.get('locationType') as string,
-            status: !initialData ? (currentUserRole === 'field_officer' ? 'inactive' : 'active') : (formData.get('status') as 'active' | 'inactive'),
+            status: !initialData
+                ? (currentUserRole === 'field_officer' ? 'inactive' : 'active')
+                : (initialData.status as 'active' | 'inactive' | 'rejected'),
             open_days: schedules,
             meetingTime: schedules.length > 0 ? schedules[0].time : undefined,
         };
@@ -375,18 +377,12 @@ export function CenterForm({ isOpen, onClose, onSubmit, initialData }: CenterFor
                             )}
 
                             {initialData && currentUserRole !== 'field_officer' ? (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Status
-                                    </label>
-                                    <select
-                                        name="status"
-                                        defaultValue={initialData?.status || 'active'}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
-                                    >
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
+                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex flex-col justify-center">
+                                    <div className="flex items-center gap-2 text-blue-700 font-bold text-xs uppercase tracking-tighter">
+                                        <Info size={14} />
+                                        Center Status
+                                    </div>
+                                    <p className="text-[10px] text-blue-600 mt-1">Status management is now handled via the action buttons in the center table.</p>
                                 </div>
                             ) : !initialData && currentUserRole === 'field_officer' ? (
                                 <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg flex flex-col justify-center">

@@ -10,7 +10,8 @@ class Group extends Model
     protected $fillable = [
         'group_name',
         'center_id',
-        'customer_ids'
+        'customer_ids',
+        'status',
     ];
 
 
@@ -18,7 +19,7 @@ class Group extends Model
         'customer_ids' => 'array',
     ];
     
-    protected $with = ['customers.center', 'customers.branch'];
+    protected $with = ['customers.center', 'customers.branch', 'customers.loans'];
 
     public function center()
     {
@@ -28,5 +29,10 @@ class Group extends Model
     public function customers()
     {
         return $this->hasMany(\App\Models\Customer::class, 'grp_id');
+    }
+
+    public function loans()
+    {
+        return $this->hasMany(\App\Models\Loan::class, 'group_id');
     }
 }

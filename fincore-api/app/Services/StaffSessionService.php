@@ -210,7 +210,7 @@ class StaffSessionService
             'is_active' => true,
         ]);
         
-        Log::info("User {$user->id} account manually unlocked");
+        Log::info("User {$user->id} account manually unlocked/activated");
     }
 
     /**
@@ -218,8 +218,9 @@ class StaffSessionService
      */
     public function emergencyLockUser(User $user): void
     {
-        // 1. Lock the account
-        $user->lockAccount();
+        // 1. Lock the account (Admin Ban)
+        $user->deactivate(); // Set is_active = false
+        $user->lockAccount(); // Standard lock (clears locked_until, revokes tokens)
 
         // 2. Find and close any open session for today
         $openSession = StaffSession::where('user_id', $user->id)

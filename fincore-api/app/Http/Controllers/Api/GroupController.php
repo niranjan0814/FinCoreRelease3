@@ -16,7 +16,7 @@ class GroupController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Group::with(['center']);
+            $query = Group::withCount(['customers', 'loans'])->with(['center.branch']);
 
             // Apply filters
             if ($request->filled('group_name')) {
@@ -61,11 +61,12 @@ class GroupController extends Controller
                 'group_name' => 'required|string|max:255|unique:groups,group_name',
                 'center_id' => 'required|integer|exists:centers,id',
                 'customer_ids' => 'nullable|array',
-                'customer_ids.*' => 'exists:customers,id'
+                'customer_ids.*' => 'exists:customers,id',
+                'status' => 'nullable|string|in:active,inactive'
             ]);
 
             $group = Group::create($validated);
-            $group->load(['center']);
+            $group->load(['center.branch']);
 
             // Update Customers' group, center, and branch assignment
             if (!empty($validated['customer_ids'])) {
@@ -122,7 +123,7 @@ class GroupController extends Controller
                 ], 400);
             }
 
-            $group = Group::with(['center'])->findOrFail($id);
+            $group = Group::with(['center.branch'])->findOrFail($id);
 
             return response()->json([
                 'status_code' => 2000,
@@ -180,11 +181,29 @@ class GroupController extends Controller
                 ],
                 'center_id' => 'sometimes|required|integer|exists:centers,id',
                 'customer_ids' => 'nullable|array',
-                'customer_ids.*' => 'exists:customers,id'
+                'customer_ids.*' => 'exists:customers,id',
+                'status' => 'sometimes|required|string|in:active,inactive'
             ]);
 
+            // Prevent disabling group if there are active loans
+            if ($request->status === 'inactive') {
+                $hasActiveLoans = \App\Models\Loan::where('group_id', $id)
+                    ->whereIn('status', \App\Models\Loan::ACTIVE_STATUSES)
+                    ->exists();
+
+                if ($hasActiveLoans) {
+                    return response()->json([
+                        'status_code' => 4090,
+                        'http_code' => 409,
+                        'status' => 'error',
+                        'message' => 'Cannot disable group',
+                        'error' => 'This group has active or pending loans. All loans must be completed or rejected before disabling the group.'
+                    ], 409);
+                }
+            }
+
             $group->update($validated);
-            $group->load(['center']);
+            $group->load(['center.branch']);
 
             // Sync Customers' group assignment
             if (isset($validated['customer_ids'])) {

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Calendar, User, Users, AlertTriangle, Trash2 } from 'lucide-react';
+import { Calendar, User, Users, AlertTriangle, Trash2, Power } from 'lucide-react';
 import { Center, TemporaryAssignment } from '../../types/center.types';
 import { colors } from '../../themes/colors';
 import { usePagination } from '../../hooks/usePagination';
@@ -17,10 +17,13 @@ interface CenterTableProps {
     onReject?: (centerId: string) => void;
     onViewDetails: (center: Center) => void;
     onDelete?: (centerId: string) => void;
+    onToggleStatus?: (center: Center) => void;
     isFieldOfficer?: boolean;
+    isManager?: boolean;
+    isSuperAdmin?: boolean;
 }
 
-export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onEdit, onViewSchedule, onApprove, onReject, onViewDetails, onDelete, isFieldOfficer }: CenterTableProps) {
+export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onEdit, onViewSchedule, onApprove, onReject, onViewDetails, onDelete, onToggleStatus, isFieldOfficer, isManager, isSuperAdmin }: CenterTableProps) {
     const {
         currentPage,
         itemsPerPage,
@@ -130,7 +133,9 @@ export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onE
                                                 ? 'bg-green-100 text-green-800 border border-green-200'
                                                 : center.status === 'rejected'
                                                     ? 'bg-red-100 text-red-800 border border-red-200'
-                                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                    : center.status === 'disabled'
+                                                        ? 'bg-gray-100 text-gray-700 border border-gray-300'
+                                                        : 'bg-amber-100 text-amber-800 border border-amber-200'
                                                 }`}>
                                                 {center.status === 'inactive' ? 'Pending' : center.status}
                                             </span>
@@ -138,7 +143,27 @@ export function CenterTable({ centers, totalCenters, getTemporaryAssignment, onE
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="col-span-3 flex justify-end gap-2 text-right">
+                                    <div className="col-span-3 flex justify-end gap-1 text-right">
+                                        {/* Disable button - only for active centers */}
+                                        {onToggleStatus && center.status === 'active' && (
+                                            <button
+                                                onClick={() => onToggleStatus(center)}
+                                                className="p-1.5 rounded transition-colors hover:bg-amber-50 text-amber-600"
+                                                title="Disable Center"
+                                            >
+                                                <Power className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                        {/* Enable button - only for disabled centers (managers/super_admin only) */}
+                                        {onToggleStatus && center.status === 'disabled' && (isManager || isSuperAdmin) && (
+                                            <button
+                                                onClick={() => onToggleStatus(center)}
+                                                className="p-1.5 rounded transition-colors hover:bg-green-50 text-green-600"
+                                                title="Enable Center"
+                                            >
+                                                <Power className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                         {center.status === 'inactive' && onApprove && (
                                             <button
                                                 onClick={() => onApprove(center.id)}

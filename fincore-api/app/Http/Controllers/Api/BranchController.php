@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Branch;
+use App\Models\Loan;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +19,7 @@ class BranchController extends Controller
     {
         try {
             $user = auth()->user();
-            $query = Branch::orderBy('branch_name');
+            $query = Branch::withCount(['customers', 'loans'])->orderBy('branch_name');
 
             // If user is not an admin/manager, limit to their assigned branch
             if (!$user->hasRole(['super_admin', 'admin', 'manager'])) {
@@ -55,7 +56,7 @@ class BranchController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Branch::query();
+            $query = Branch::withCount(['customers', 'loans']);
             $isFiltered = false;
 
             // Filter by branch_id
@@ -125,6 +126,7 @@ class BranchController extends Controller
                 'manager_staff_id' => 'nullable|string',
                 'staff_ids' => 'nullable|array',
                 'staff_ids.*' => 'string|max:50',
+                'status' => 'nullable|string|in:active,inactive',
             ], [
                 'phone.regex' => 'The phone number format is invalid. Use format like 0771234567 or +94771234567',
                 'email.email' => 'Please enter a valid email address',
@@ -330,25 +332,44 @@ class BranchController extends Controller
                     Rule::unique('branches', 'branch_name')->ignore($branch->id)
                 ],
                 'location' => 'nullable|string|max:255',
-                'address' => 'required|string',
-                'city' => 'required|string|max:100',
-                'province' => 'required|string|max:100',
-                'postal_code' => 'required|string|max:20',
-                'phone' => ['required', 'string', 'max:20', 'regex:/^(\+94|0)?[0-9]{9}$/'],
+                'address' => 'sometimes|required|string',
+                'city' => 'sometimes|required|string|max:100',
+                'province' => 'sometimes|required|string|max:100',
+                'postal_code' => 'sometimes|required|string|max:20',
+                'phone' => ['sometimes', 'required', 'string', 'max:20', 'regex:/^(\+94|0)?[0-9]{9}$/'],
                 'email' => [
+                    'sometimes',
                     'required',
                     'email',
                     'max:255',
                     Rule::unique('branches', 'email')->ignore($branch->id)
                 ],
-                'manager_name' => 'required|string|max:255',
+                'manager_name' => 'sometimes|required|string|max:255',
                 'manager_staff_id' => 'nullable|string',
                 'staff_ids' => 'nullable|array',
                 'staff_ids.*' => 'string|max:50',
+                'status' => 'sometimes|required|string|in:active,inactive',
             ], [
                 'phone.regex' => 'The phone number format is invalid. Use format like 0771234567 or +94771234567',
                 'email.email' => 'Please enter a valid email address',
             ]);
+
+            // Prevent disabling branch if there are active loans
+            if ($request->status === 'inactive') {
+                $hasActiveLoans = Loan::whereIn('status', Loan::ACTIVE_STATUSES)
+                    ->whereHas('center', function($query) use ($id) {
+                        $query->where('branch_id', $id);
+                    })->exists();
+
+                if ($hasActiveLoans) {
+                    return response()->json([
+                        'status' => 'error',
+                        'status_code' => 409,
+                        'message' => 'Cannot disable branch',
+                        'error' => 'This branch has active or pending loans. All loans must be completed or rejected before disabling the branch.'
+                    ], 409);
+                }
+            }
 
             // Update branch
             $branch->update($validated);

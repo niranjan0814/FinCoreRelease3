@@ -93,7 +93,7 @@ export function ViewScheduling() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDay, setSelectedDay] = useState('');
-    const [statusTab, setStatusTab] = useState<'active' | 'inactive' | 'rejected'>('active');
+    const [statusTab, setStatusTab] = useState<'active' | 'inactive' | 'rejected' | 'disabled'>('active');
 
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -108,6 +108,7 @@ export function ViewScheduling() {
 
     const pendingCount = centers.filter(c => c.status === 'inactive').length;
     const rejectedCount = centers.filter(c => c.status === 'rejected').length;
+    const disabledCount = centers.filter(c => c.status === 'disabled').length;
 
     const getTemporaryAssignment = (centerId: string) => {
         const today = new Date().toISOString().split('T')[0];
@@ -138,9 +139,8 @@ export function ViewScheduling() {
             </div>
         );
     }
-
     const handleApprove = async (centerId: string) => {
-        if (!authService.hasPermission('centers.approve') && !authService.hasRole('super_admin') && !authService.hasRole('admin')) {
+        if ((!authService.hasPermission('centers.approve') && !authService.hasRole('super_admin') && !authService.hasRole('manager')) || authService.hasRole('admin')) {
             toast.error('You do not have permission to approve centers');
             return;
         }
@@ -156,7 +156,7 @@ export function ViewScheduling() {
     };
 
     const handleReject = (centerId: string) => {
-        if (!authService.hasPermission('centers.approve') && !authService.hasRole('super_admin') && !authService.hasRole('admin')) {
+        if ((!authService.hasPermission('centers.approve') && !authService.hasRole('super_admin') && !authService.hasRole('manager')) || authService.hasRole('admin')) {
             toast.error('You do not have permission to reject requests');
             return;
         }
@@ -183,6 +183,20 @@ export function ViewScheduling() {
             console.error('Failed to reject request:', err);
             toast.error(err.message || 'Failed to reject request');
             throw err;
+        }
+    };
+
+    const handleToggleStatus = async (center: Center) => {
+        try {
+            await centerService.toggleCenterStatus(center.id, center.status);
+            toast.success(`Center ${center.status === 'active' ? 'disabled' : 'enabled'} successfully!`);
+            loadCenters();
+        } catch (err: any) {
+            console.error('Failed to update center status:', err);
+            const errorMessage = err.errors ?
+                Object.values(err.errors).flat().join(', ') :
+                err.message || 'Failed to update center status';
+            toast.error(errorMessage);
         }
     };
 
@@ -229,7 +243,7 @@ export function ViewScheduling() {
                 >
                     Active Centers
                 </button>
-                {(pendingCount > 0 || authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('admin')) && (
+                {(pendingCount > 0 || ((authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin'))) && (
                     <button
                         onClick={() => setStatusTab('inactive')}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${statusTab === 'inactive'
@@ -245,7 +259,7 @@ export function ViewScheduling() {
                         )}
                     </button>
                 )}
-                {(rejectedCount > 0 || authService.hasRole('field_officer') || authService.hasRole('super_admin') || authService.hasRole('admin')) && (
+                {(rejectedCount > 0 || authService.hasRole('field_officer') || ((authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin'))) && (
                     <button
                         onClick={() => setStatusTab('rejected')}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${statusTab === 'rejected'
@@ -257,6 +271,22 @@ export function ViewScheduling() {
                         {rejectedCount > 0 && (
                             <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] rounded-full font-bold">
                                 {rejectedCount}
+                            </span>
+                        )}
+                    </button>
+                )}
+                {(disabledCount > 0 || ((authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin'))) && (
+                    <button
+                        onClick={() => setStatusTab('disabled')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${statusTab === 'disabled'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        Disabled Centers
+                        {disabledCount > 0 && (
+                            <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 text-[10px] rounded-full font-bold">
+                                {disabledCount}
                             </span>
                         )}
                     </button>
@@ -301,11 +331,14 @@ export function ViewScheduling() {
                 getTemporaryAssignment={getTemporaryAssignment}
                 onEdit={handleEdit}
                 onViewSchedule={(id) => console.log('View schedule:', id)}
-                onApprove={(authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('admin')) ? handleApprove : undefined}
-                onReject={(authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('admin')) ? handleReject : undefined}
+                onApprove={((authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin')) ? handleApprove : undefined}
+                onReject={((authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin')) ? handleReject : undefined}
                 onViewDetails={handleViewDetails}
                 onDelete={authService.hasPermission('centers.delete') || authService.hasRole('field_officer') ? handleDeleteCenter : undefined}
+                onToggleStatus={handleToggleStatus}
                 isFieldOfficer={authService.hasRole('field_officer')}
+                isManager={authService.hasRole('manager')}
+                isSuperAdmin={authService.hasRole('super_admin')}
             />
 
             {
@@ -339,9 +372,9 @@ export function ViewScheduling() {
                             setIsDetailsModalOpen(false);
                             setSelectedCenter(null);
                         }}
-                        onApprove={(authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('admin')) ? handleApprove : undefined}
-                        onReject={(authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('admin')) ? handleReject : undefined}
-                        onEdit={authService.hasPermission('centers.edit') || authService.hasRole('super_admin') || authService.hasRole('admin') ? handleEdit : undefined}
+                        onApprove={((authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin')) ? handleApprove : undefined}
+                        onReject={((authService.hasPermission('centers.approve') || authService.hasRole('super_admin') || authService.hasRole('manager')) && !authService.hasRole('admin')) ? handleReject : undefined}
+                        onEdit={authService.hasPermission('centers.edit') || authService.hasRole('super_admin') || authService.hasRole('manager') || authService.hasRole('admin') ? handleEdit : undefined}
                         onDelete={authService.hasPermission('centers.delete') || authService.hasRole('field_officer') ? handleDeleteCenter : undefined}
                         isFieldOfficer={authService.hasRole('field_officer')}
                     />

@@ -197,6 +197,43 @@ export const authService = {
             console.error('Failed to refresh profile', error);
         }
     },
+
+    forgotPassword: async (email: string): Promise<any> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/password/email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to send reset link');
+            return data;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    resetPassword: async (data: any): Promise<any> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/password/reset`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            const responseData = await response.json();
+            if (!response.ok) throw new Error(responseData.message || 'Failed to reset password');
+            return responseData;
+        } catch (error) {
+            throw error;
+        }
+    },
+
     getHighestHierarchy: (): number => {
         if (typeof window === 'undefined') return 1000;
         const rolesStr = localStorage.getItem('roles');

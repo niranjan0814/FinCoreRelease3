@@ -108,6 +108,20 @@ export default function BranchManagementPage() {
         }
     };
 
+    const handleToggleStatus = async (branch: Branch) => {
+        try {
+            await branchService.toggleBranchStatus(branch.id, branch.status);
+            toast.success(`Branch ${branch.status === 'active' ? 'disabled' : 'enabled'} successfully!`);
+            loadBranches();
+        } catch (error: any) {
+            console.error('Failed to update branch status:', error);
+            const errorMessage = error.errors ?
+                Object.values(error.errors).flat().join(', ') :
+                error.message || 'Failed to update branch status';
+            toast.error(errorMessage);
+        }
+    };
+
     // Filter branches based on search
     const filteredBranches = branches.filter(branch =>
         (branch.branch_name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -118,10 +132,9 @@ export default function BranchManagementPage() {
     // Calculate statistics
     const stats: BranchStatsType = {
         totalBranches: branches.length,
-        // Backend doesn't support status yet, so we assume all are active or count if we added the optional field
-        activeBranches: branches.length,
-        totalCustomers: 0, // Not supported by backend yet
-        totalLoans: 0 // Not supported by backend yet
+        activeBranches: branches.filter(b => b.status === 'active').length,
+        totalCustomers: branches.reduce((sum, b) => sum + (b.customers_count || b.customerCount || 0), 0),
+        totalLoans: branches.reduce((sum, b) => sum + (b.loans_count || b.loanCount || 0), 0)
     };
 
     if (hasAccess === false) return null;
@@ -201,6 +214,7 @@ export default function BranchManagementPage() {
                 totalBranches={branches.length}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
             />
 
             {/* Branch Form Modal */}

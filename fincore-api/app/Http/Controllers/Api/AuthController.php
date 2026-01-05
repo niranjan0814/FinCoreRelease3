@@ -45,15 +45,25 @@ class AuthController extends BaseController
             }
 
             // Check if account is locked (locked_until not expired or manually deactivated)
+            // Check 1: Admin Ban (is_active = false)
             if (!$user->is_active) {
                 return $this->errorResponse(
                     4230,
-                    'Account is deactivated. Please contact administrator',
+                    'Account disabled. Please contact administrator.', // Cannot be reset by user
                     423
                 );
             }
 
-            // Check if account is time-locked (locked_until)
+            // Check 2: System Lockout (Failed Attempts >= 3)
+            if ($user->failed_login_attempts >= 3) {
+                 return $this->errorResponse(
+                    4230,
+                    'Account disabled details. Please reset your Account.', // Can be reset by user
+                    423
+                );
+            }
+
+            // Check 3: Time-based Lock (if any)
             if ($user->locked_until && $user->locked_until->isFuture()) {
                 return $this->errorResponse(
                     4230,
@@ -64,16 +74,22 @@ class AuthController extends BaseController
 
             // Password validation
             if (!Hash::check($request->password, $user->password)) {
-                $user->increment('failed_login_attempts');
+                $user->recordFailedLogin();
+                $user->refresh(); // Reload to check if it got locked
 
                 if ($user->failed_login_attempts >= 3) {
-                    $user->update([
-                        'is_active' => false,
-                    ]);
+                    // Send password reset email automatically
+                    // We suppress errors here to avoid leaking info or crashing if mail fails, 
+                    // though for this req we assume it works.
+                    try {
+                        \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $user->email]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send lockout reset email: ' . $e->getMessage());
+                    }
 
                     return $this->errorResponse(
                         4230,
-                        'Account locked due to multiple failed attempts',
+                        'Account disabled details. Please reset your Account.',
                         423
                     );
                 }

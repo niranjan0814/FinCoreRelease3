@@ -28,10 +28,18 @@ use App\Http\Controllers\Api\ShareholderController;
 |--------------------------------------------------------------------------
 */
 
+use App\Http\Controllers\Api\PasswordResetController;
+
 // ==================== PUBLIC ROUTES ====================
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('register', [AuthController::class, 'register']);
+    Route::post('password/email', [PasswordResetController::class, 'sendResetLinkEmail']);
+    Route::post('password/reset', [PasswordResetController::class, 'reset']);
+    Route::get('reset-password/{token}', function ($token) {
+        $email = request()->input('email');
+        return redirect("http://localhost:3000/reset-password?token={$token}&email={$email}");
+    })->name('password.reset');
 });
 
 Route::post('/login', [AuthController::class, 'login']); // Keep legacy top-level login if needed

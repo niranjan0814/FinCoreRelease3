@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Edit, UsersRound, Trash2 } from 'lucide-react';
+import { Edit, UsersRound, Trash2, Power } from 'lucide-react';
 import { Group } from '../../types/group.types';
 import { usePagination } from '../../hooks/usePagination';
 import { Pagination } from '../common/Pagination';
@@ -12,9 +12,10 @@ interface GroupTableProps {
     onEdit: (group: Group) => void;
     onViewMembers: (group: Group) => void;
     onDelete?: (groupId: number) => void;
+    onToggleStatus?: (group: Group) => void;
 }
 
-export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelete }: GroupTableProps) {
+export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelete, onToggleStatus }: GroupTableProps) {
     const {
         currentPage,
         itemsPerPage,
@@ -69,7 +70,7 @@ export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelet
                             {/* Branch */}
                             <div className="col-span-2">
                                 <p className="text-sm text-gray-900">
-                                    {group.branch?.branch_name || group.branch_id || 'N/A'}
+                                    {group.center?.branch?.branch_name || group.branch?.branch_name || 'N/A'}
                                 </p>
                             </div>
 
@@ -77,11 +78,33 @@ export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelet
                             <div className="col-span-2">
                                 <button
                                     onClick={() => onViewMembers(group)}
-                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-left group"
                                 >
-                                    {group.customers?.length || group.member_count || 0} Members
+                                    <div className="flex flex-col">
+                                        {group.customers && group.customers.length > 0 ? (
+                                            <>
+                                                <div className="flex -space-x-2 mb-1">
+                                                    {group.customers.slice(0, 3).map((customer, i) => (
+                                                        <div key={customer.id} className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-blue-600" title={customer.full_name}>
+                                                            {customer.full_name.charAt(0)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <p className="text-xs font-medium text-blue-600 group-hover:text-blue-700 truncate w-32">
+                                                    {group.customers[0].full_name}
+                                                    {group.customers.length > 1 && ` + ${group.customers.length - 1} more`}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 font-medium">
+                                                {group.customers_count || 0} Members
+                                            </p>
+                                        )}
+                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                            {group.loans_count ?? 0} active loans
+                                        </p>
+                                    </div>
                                 </button>
-                                <p className="text-xs text-gray-500">View details</p>
                             </div>
 
                             {/* Status */}
@@ -95,7 +118,19 @@ export function GroupTable({ groups, totalGroups, onEdit, onViewMembers, onDelet
                             </div>
 
                             {/* Actions */}
-                            <div className="col-span-1 flex items-center gap-2">
+                            <div className="col-span-1 flex items-center gap-1">
+                                {onToggleStatus && (
+                                    <button
+                                        onClick={() => onToggleStatus(group)}
+                                        className={`p-1.5 rounded transition-colors ${group.status === 'inactive'
+                                            ? 'hover:bg-green-50 text-green-600'
+                                            : 'hover:bg-amber-50 text-amber-600'
+                                            }`}
+                                        title={group.status === 'inactive' ? 'Enable Group' : 'Disable Group'}
+                                    >
+                                        <Power className="w-4 h-4" />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => onEdit(group)}
                                     className="p-1.5 hover:bg-blue-50 rounded text-blue-600"

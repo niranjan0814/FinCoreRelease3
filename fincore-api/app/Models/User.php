@@ -304,22 +304,23 @@ class User extends Authenticatable
     /**
      * Record failed login attempt
      */
+    /**
+     * Record failed login attempt
+     */
     public function recordFailedLogin(): void
     {
-        $attempts = $this->failed_login_attempts + 1;
+        $this->failed_login_attempts++;
+        $this->save();
         
-        $this->update([
-            'failed_login_attempts' => $attempts,
-        ]);
-        
-        // Lock account after 5 failed attempts
-        if ($attempts >= 5) {
-            $this->update([
-                'locked_until' => now()->addMinutes(30),
-            ]);
+        // Lock account after 3 failed attempts
+        if ($this->failed_login_attempts >= 3) {
+            $this->lockAccount();
         }
     }
 
+    /**
+     * Unlock user account
+     */
     /**
      * Unlock user account
      */
@@ -328,7 +329,8 @@ class User extends Authenticatable
         $this->update([
             'failed_login_attempts' => 0,
             'locked_until' => null,
-            'is_active' => true,
+            // Do NOT automatically activate the account. 
+            // If it was disabled by admin (is_active=false), it should stay disabled.
         ]);
     }
 
@@ -338,8 +340,10 @@ class User extends Authenticatable
     public function lockAccount(): void
     {
         $this->update([
-            'is_active' => false,
-            'locked_until' => null, // Explicitly active lock (not timed)
+            // Do NOT set is_active to false. 
+            // We distinguish between "Locked (Attempts)" and "Disabled (Admin)".
+            // Locked is determined by failed_login_attempts >= 3.
+            'locked_until' => null, // Permanent lock until reset
         ]);
 
         // Revoke all tokens to force logout

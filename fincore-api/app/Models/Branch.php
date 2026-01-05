@@ -18,6 +18,7 @@ class Branch extends Model
         'email',
         'manager_name',
         'staff_ids',
+        'status'
     ];
 
     protected $casts = [
@@ -27,5 +28,22 @@ class Branch extends Model
     public function manager()
     {
         return $this->hasOne(Staff::class, 'branch_id')->where('work_info->designation', 'manager');
+    }
+
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'branch_id');
+    }
+
+    public function loans()
+    {
+        return $this->hasManyThrough(
+            Loan::class,
+            Center::class,
+            'branch_id', // Foreign key on centers table...
+            'CSU_id',    // Foreign key on loans table...
+            'id',        // Local key on branches table...
+            'id'         // Local key on centers table...
+        );
     }
 }

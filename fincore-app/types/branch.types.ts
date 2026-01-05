@@ -15,8 +15,12 @@ export interface Branch {
     created_at?: string;
     updated_at?: string;
 
+    // Laravel withCount fields
+    customers_count?: number;
+    loans_count?: number;
+
     // Optional compatibility fields for UI if needed (derived or defaults)
-    status?: 'Active' | 'Inactive'; // Backend doesn't have status yet, default to Active?
+    status: 'active' | 'inactive';
     manager?: string;
     customerCount?: number;
     loanCount?: number;
@@ -35,6 +39,7 @@ export interface BranchFormData {
     manager_name: string;
     manager_staff_id?: string;
     staff_ids?: string[];
+    status?: 'active' | 'inactive';
 }
 
 export interface BranchStats {

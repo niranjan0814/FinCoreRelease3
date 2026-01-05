@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Building2, Edit, Trash2, MapPin, Phone, Mail } from 'lucide-react';
+import { Building2, Edit, Trash2, MapPin, Phone, Mail, Power } from 'lucide-react';
 import { Branch } from '../../types/branch.types';
 import { colors } from '../../themes/colors';
 import { usePagination } from '../../hooks/usePagination';
@@ -12,9 +12,10 @@ interface BranchTableProps {
     totalBranches: number;
     onEdit: (branch: Branch) => void;
     onDelete: (id: number) => void;
+    onToggleStatus: (branch: Branch) => void;
 }
 
-export function BranchTable({ branches, totalBranches, onEdit, onDelete }: BranchTableProps) {
+export function BranchTable({ branches, totalBranches, onEdit, onDelete, onToggleStatus }: BranchTableProps) {
     const {
         currentPage,
         itemsPerPage,
@@ -83,21 +84,33 @@ export function BranchTable({ branches, totalBranches, onEdit, onDelete }: Branc
                                 {/* Manager: Name + Customer Count */}
                                 <div className="col-span-2">
                                     <p className="text-sm font-medium text-gray-900">{branch.manager_name || 'Unassigned'}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{branch.customerCount || 0} customers</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {branch.customers_count ?? branch.customerCount ?? 0} customers
+                                    </p>
                                 </div>
 
                                 {/* Status */}
                                 <div className="col-span-1 flex justify-center">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                        ${branch.status === 'Inactive'
+                                        ${(branch.status || 'active').toLowerCase() === 'inactive'
                                             ? 'bg-red-100 text-red-800'
                                             : 'bg-green-100 text-green-800'}`}>
-                                        {branch.status || 'Active'}
+                                        {branch.status || 'active'}
                                     </span>
                                 </div>
 
                                 {/* Actions */}
-                                <div className="col-span-1 flex items-center justify-end gap-2">
+                                <div className="col-span-1 flex items-center justify-end gap-1">
+                                    <button
+                                        onClick={() => onToggleStatus(branch)}
+                                        className={`p-1.5 rounded transition-colors ${branch.status === 'inactive'
+                                            ? 'hover:bg-green-50 text-green-600'
+                                            : 'hover:bg-amber-50 text-amber-600'
+                                            }`}
+                                        title={branch.status === 'inactive' ? 'Enable Branch' : 'Disable Branch'}
+                                    >
+                                        <Power className="w-4 h-4" />
+                                    </button>
                                     <button
                                         onClick={() => onEdit(branch)}
                                         className="p-1.5 hover:bg-blue-50 rounded text-blue-600 transition-colors"

@@ -6,11 +6,11 @@ const handleResponse = async (response: Response) => {
 
     if (!response.ok) {
         if (data && (response.status === 422 || response.status === 409)) {
-            const error = new Error(data.message || 'Validation failed');
+            const error = new Error(data.error || data.message || 'Validation failed');
             (error as any).errors = data.errors;
             throw error;
         }
-        throw new Error(data.message || 'Request failed');
+        throw new Error(data.error || data.message || 'Request failed');
     }
 
     return data;
@@ -92,6 +92,24 @@ export const groupService = {
             await handleResponse(response);
         } catch (error) {
             console.error('Failed to delete group:', error);
+            throw error;
+        }
+    },
+
+    // Toggle Group Status
+    toggleGroupStatus: async (id: number, currentStatus: string): Promise<Group> => {
+        const newStatus = currentStatus.toLowerCase() === 'active' ? 'inactive' : 'active';
+        try {
+            const response = await fetch(`${API_BASE_URL}/groups/${id}`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const json: ApiResponse<Group> = await handleResponse(response);
+            return json.data;
+        } catch (error) {
+            console.error('Failed to update group status:', error);
             throw error;
         }
     }

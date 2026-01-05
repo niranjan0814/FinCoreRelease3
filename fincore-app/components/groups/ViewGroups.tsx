@@ -70,6 +70,20 @@ export function ViewGroups() {
         }
     };
 
+    const handleToggleStatus = async (group: Group) => {
+        try {
+            await groupService.toggleGroupStatus(group.id, group.status);
+            toast.success(`Group ${group.status === 'active' ? 'disabled' : 'enabled'} successfully!`);
+            loadGroups();
+        } catch (err: any) {
+            console.error('Failed to update group status:', err);
+            const errorMessage = err.errors ?
+                Object.values(err.errors).flat().join(', ') :
+                err.message || 'Failed to update group status';
+            toast.error(errorMessage);
+        }
+    };
+
     const handleDeleteGroup = async (groupId: number) => {
         if (!window.confirm('Are you sure you want to delete this group?')) return;
 
@@ -218,6 +232,7 @@ export function ViewGroups() {
                 onEdit={handleEdit}
                 onViewMembers={handleViewMembers}
                 onDelete={handleDeleteGroup}
+                onToggleStatus={handleToggleStatus}
             />
 
             {filteredGroups.length === 0 && (
@@ -240,7 +255,7 @@ export function ViewGroups() {
                     id: selectedGroup.id,
                     group_name: selectedGroup.group_name,
                     center_id: selectedGroup.center_id,
-                    branch_id: selectedGroup.branch_id,
+                    branch_id: (selectedGroup.branch_id || selectedGroup.center?.branch_id)?.toString(),
                     status: selectedGroup.status,
                     customer_ids: selectedGroup.customers?.map(c => c.id.toString())
                 } : null}

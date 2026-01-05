@@ -11,12 +11,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
     if (!response.ok) {
         if (data && (response.status === 422 || response.status === 409)) {
-            const error = new Error(data.message || 'Validation failed');
+            const error = new Error(data.error || data.message || 'Validation failed');
             (error as any).errors = data.errors;
             throw error;
         }
 
-        const errorMessage = (data && data.message) || response.statusText;
+        const errorMessage = (data && (data.error || data.message)) || response.statusText;
         throw new Error(`API Error ${response.status}: ${errorMessage}`);
     }
 
@@ -110,5 +110,18 @@ export const centerService = {
             const errorMessage = (data && data.message) || response.statusText;
             throw new Error(`Rejection failed ${response.status}: ${errorMessage}`);
         }
+    },
+
+    // Toggle Center Status (active <-> disabled)
+    toggleCenterStatus: async (id: string, currentStatus: string): Promise<Center> => {
+        // Toggle between 'active' and 'disabled' (not 'inactive' which is for pending approval)
+        const newStatus = currentStatus.toLowerCase() === 'active' ? 'disabled' : 'active';
+        const response = await fetch(`${API_BASE_URL}/centers/${id}`, {
+            method: 'PUT',
+            ...fetchOptions,
+            headers: getHeaders(),
+            body: JSON.stringify({ status: newStatus })
+        });
+        return handleResponse<Center>(response);
     }
 };

@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { Group, GroupMember } from '../../types/group.types';
+import { isLoanClosed } from '../../types/loan.types';
 import { toast } from 'react-toastify';
 
 interface GroupMemberModalProps {
@@ -65,6 +66,13 @@ export function GroupMemberModal({ isOpen, onClose, group }: GroupMemberModalPro
                                                     {isTransferred && (
                                                         <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] uppercase font-bold rounded border border-amber-200">
                                                             Transferred
+                                                        </span>
+                                                    )}
+                                                    {/* Active Loan Status */}
+                                                    {customer.loans?.find(l => !isLoanClosed(l.status || '')) && (
+                                                        <span className="px-1.5 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded border border-red-100 flex items-center gap-1">
+                                                            <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse"></span>
+                                                            Has Active Loan ({customer.loans.find(l => !isLoanClosed(l.status || ''))?.loan_id})
                                                         </span>
                                                     )}
                                                 </div>

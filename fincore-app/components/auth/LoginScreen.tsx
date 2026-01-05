@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Clock, AlertCircle, Eye, EyeOff, Shield, Users, TrendingUp, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
+import { authService } from '../../services/auth.service';
 
 interface LoginScreenProps {
     onLogin: (username: string, password: string) => Promise<void>;
@@ -82,8 +83,7 @@ export function LoginScreen({ onLogin, initialView = 'login' }: LoginScreenProps
         setLoading(true);
 
         try {
-            // TODO: Implement actual password reset API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await authService.forgotPassword(email);
             setSuccess(true);
             toast.success('Password reset link sent to your email!');
         } catch (err: any) {
@@ -189,9 +189,23 @@ export function LoginScreen({ onLogin, initialView = 'login' }: LoginScreenProps
 
                             {/* Error Message */}
                             {error && (
-                                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
-                                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-red-800 font-medium">{error}</p>
+                                <div className="flex flex-col gap-2 p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-red-800 font-medium">{error}</p>
+                                    </div>
+                                    {(error.includes('Account disabled details') || error.includes('locked')) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setError('');
+                                                setView('forgot-password');
+                                            }}
+                                            className="self-end text-sm text-red-700 hover:text-red-900 font-semibold underline mt-1"
+                                        >
+                                            Reset Account
+                                        </button>
+                                    )}
                                 </div>
                             )}
 

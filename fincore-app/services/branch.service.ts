@@ -113,5 +113,30 @@ export const branchService = {
             const json = await response.json().catch(() => ({}));
             throw new Error(json.message || 'Failed to delete branch');
         }
+    },
+
+    // Toggle Branch Status
+    toggleBranchStatus: async (id: number, currentStatus: string): Promise<Branch> => {
+        const newStatus = currentStatus.toLowerCase() === 'active' ? 'inactive' : 'active';
+
+        const response = await fetch(`${API_BASE_URL}/branches/${id}`, {
+            method: 'PUT',
+            ...fetchOptions,
+            headers: getHeaders(),
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const json = await response.json();
+        if (!response.ok) {
+            if (response.status === 422 || response.status === 409) {
+                const errorMessage = json.error || json.message || 'Validation failed';
+                const error = new Error(errorMessage);
+                (error as any).errors = json.errors;
+                throw error;
+            }
+            throw new Error(json.error || json.message || 'Failed to update status');
+        }
+
+        return json.data;
     }
 };

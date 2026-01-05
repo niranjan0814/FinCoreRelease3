@@ -20,7 +20,8 @@ const defaultFormData: BranchFormData = {
     phone: '',
     email: '',
     manager_name: '',
-    staff_ids: []
+    staff_ids: [],
+    status: 'active'
 };
 
 export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormProps) {
@@ -62,7 +63,8 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                 phone: initialData.phone || '',
                 email: initialData.email || '',
                 manager_name: initialData.manager_name || '',
-                staff_ids: initialData.staff_ids || []
+                staff_ids: initialData.staff_ids || [],
+                status: initialData.status || 'active'
             });
         } else {
             setFormData(defaultFormData);
@@ -212,6 +214,7 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                     </div>
 
                     {/* Email & Manager */}
+                    {/* Email & Manager */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block font-semibold text-gray-900 mb-2 text-sm">Email *</label>
@@ -254,7 +257,7 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                         </div>
                     </div>
 
-                    {/* Email & Manager */}
+
 
                 </div>
 
@@ -269,8 +272,8 @@ export function BranchForm({ isOpen, onClose, onSave, initialData }: BranchFormP
                         onClick={handleSubmit}
                         disabled={!hasChanges}
                         className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all ${!hasChanges
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-lg shadow-blue-500/20'
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-lg shadow-blue-500/20'
                             }`}
                     >
                         {initialData ? 'Update Branch' : 'Add Branch'}
