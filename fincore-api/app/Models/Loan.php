@@ -189,4 +189,9 @@ class Loan extends Model
             ->where('status', '!=', 'cancelled')
             ->latestOfMany();
     }
+
+    public function extensions()
+    {
+        return $this->hasMany(LoanDueDateExtension::class, 'loan_id');
+    }
 }

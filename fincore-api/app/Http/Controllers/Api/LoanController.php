@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
 use Illuminate\Http\Request;
+use App\Notifications\LoanStatusNotification;
 
 class LoanController extends Controller
 {
@@ -197,7 +198,36 @@ class LoanController extends Controller
     {
         try {
             $loan = Loan::with(['customer', 'product', 'center.branch.manager', 'group', 'staff'])->findOrFail($id);
-            $action = $request->input('action'); // 'approve' or 'send_back'
+            $action = $request->input('action'); // 'approve', 'send_back', 'reject'
+            
+            // Get manager info for notification
+            $user = auth()->user();
+            $role = $user->getRoleNames()->first() ?? '';
+            $formattedRole = ucwords(str_replace('_', ' ', $role)); // e.g. "Branch Manager"
+
+            $staffName = null;
+            if ($user->staff) {
+                // If linked to a Staff record, use their real name
+                $staffName = $user->staff->full_name ?? $user->staff->name_with_initial;
+            } elseif (strpos($user->user_name, ' ') !== false) {
+                 // If no staff record, use user_name ONLY if it looks like a name (has spaces)
+                 // This filters out IDs like 'ST0002', 'admin', 'user1'
+                 $staffName = $user->user_name;
+            }
+
+            // Construct display name: "Manager Name" or just "Manager"
+            $displayName = $staffName ? trim($formattedRole . ' ' . $staffName) : $formattedRole;
+
+            // Fallback if everything fails
+            if (empty($displayName)) $displayName = 'System';
+
+            $managerInfo = [
+                'id' => $user->id,
+                'name' => $displayName,
+            ];
+            
+            $notificationAction = null;
+            $reason = $request->input('reason');
             
             if ($action === 'approve') {
                 $history = is_array($loan->approve_history) ? $loan->approve_history : [];
@@ -215,9 +245,11 @@ class LoanController extends Controller
                     if ($loan->approved_amount >= 200000) {
                         $loan->status = Loan::STATUS_PENDING_2ND;
                         $loan->approval_level = 1;
+                        $notificationAction = LoanStatusNotification::ACTION_FIRST_APPROVAL;
                     } else {
                         $loan->status = Loan::STATUS_ACTIVE;
                         $loan->approval_level = 2;
+                        $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
                         
                         // Ensure rental is calculated before creating record
                         if (!$loan->rentel || $loan->rentel <= 0) {
@@ -232,6 +264,7 @@ class LoanController extends Controller
                     $history['second'] = $approver;
                     $loan->status = Loan::STATUS_ACTIVE;
                     $loan->approval_level = 2;
+                    $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
                     
                     // Ensure rental is calculated before creating record
                     if (!$loan->rentel || $loan->rentel <= 0) {
@@ -242,13 +275,32 @@ class LoanController extends Controller
                     $this->createInitialPaymentRecord($loan);
                 }
                 $loan->approve_history = $history;
+            } elseif ($action === 'reject') {
+                // Permanent rejection
+                $loan->status = Loan::STATUS_REJECTED;
+                $loan->rejection_reason = $reason;
+                $notificationAction = LoanStatusNotification::ACTION_REJECTED;
             } else {
+                // Send back for correction
                 $loan->status = Loan::STATUS_SENT_BACK;
-                $loan->rejection_reason = $request->input('reason');
+                $loan->rejection_reason = $reason;
                 $loan->approval_level = 0; // Reset to 0 for resubmission cycle
+                $notificationAction = LoanStatusNotification::ACTION_SENT_BACK;
             }
             
             $loan->save();
+            
+            // Send notification to the field officer who created/manages the loan
+            if ($notificationAction && $loan->staff) {
+                $loan->staff->notify(
+                    new LoanStatusNotification(
+                        $notificationAction,
+                        $loan,
+                        $managerInfo,
+                        $reason
+                    )
+                );
+            }
             
             // Reload with relations for the response
             $loan->load(['customer', 'product', 'center.branch.manager', 'group', 'staff']);

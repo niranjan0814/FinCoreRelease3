@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Bell, Search, User, LogOut, ChevronDown, Moon, Sun, Clock } from 'lucide-react';
+import { Menu, Search, User, LogOut, ChevronDown, Moon, Sun, Clock } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { authService, LogoutType } from '../../services/auth.service';
 import { sessionService, WorkStatus, getWorkStatusLabel, getWorkStatusColor } from '../../services/session.service';
 import { toast } from 'react-toastify';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface HeaderProps {
     user: {
@@ -21,7 +22,6 @@ interface HeaderProps {
 
 export function Header({ user, onLogout, onToggleSidebar, onProfileSettings }: HeaderProps) {
     const [showUserMenu, setShowUserMenu] = useState(false);
-    const [showNotifications, setShowNotifications] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showMidnightWarning, setShowMidnightWarning] = useState(false);
     const [midnightWarningMessage, setMidnightWarningMessage] = useState<string | null>(null);
@@ -47,16 +47,9 @@ export function Header({ user, onLogout, onToggleSidebar, onProfileSettings }: H
     // 'logged_out' -> LOGOUT (permanent, session closes)
     const [workStatus, setWorkStatus] = useState<WorkStatus>('office_work');
 
-    const [notifications] = useState([
-        { id: 1, message: '3 loans pending approval', type: 'warning', time: '10 min ago' },
-        { id: 2, message: 'New collection completed', type: 'success', time: '1 hour ago' },
-        { id: 3, message: 'Payment reversal requested', type: 'alert', time: '2 hours ago' }
-    ]);
-
     // Close menus on route change
     useEffect(() => {
         setShowUserMenu(false);
-        setShowNotifications(false);
     }, [pathname]);
 
     // Close user menu on outside click
@@ -412,51 +405,7 @@ export function Header({ user, onLogout, onToggleSidebar, onProfileSettings }: H
                     </button>
 
                     {/* Notifications */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowNotifications(!showNotifications)}
-                            className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors relative"
-                        >
-                            <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                            {notifications.length > 0 && (
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-800"></span>
-                            )}
-                        </button>
-
-                        {/* Notifications Dropdown */}
-                        {showNotifications && (
-                            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50">
-                                <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                                    <h3 className="text-gray-900 dark:text-gray-100 font-semibold tracking-tight">Notifications</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">{notifications.length} unread</p>
-                                </div>
-                                <div className="max-h-96 overflow-y-auto">
-                                    {notifications.map(notif => (
-                                        <div
-                                            key={notif.id}
-                                            className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-50 dark:border-gray-700 cursor-pointer transition-colors"
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`w-2 h-2 rounded-full mt-2 ${notif.type === 'warning' ? 'bg-yellow-500' :
-                                                    notif.type === 'success' ? 'bg-green-500' :
-                                                        'bg-red-500'
-                                                    }`}></div>
-                                                <div className="flex-1">
-                                                    <p className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-relaxed">{notif.message}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">{notif.time}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="p-3 text-center border-t border-gray-100 dark:border-gray-700">
-                                    <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold">
-                                        View all notifications
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <NotificationDropdown />
 
                     {/* User Menu */}
                     <div className="relative">

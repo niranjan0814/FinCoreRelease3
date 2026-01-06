@@ -160,6 +160,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'roles-privileges': '/roles-privileges',
             'customer-requests': '/customers/requests',
             'receipt-rejections': '/collections/rejections',
+            'due-list': '/collections/due-list',
+            'collections': '/collections',
         };
 
         const path = routeMap[pageId as string] || `/${pageId}`;

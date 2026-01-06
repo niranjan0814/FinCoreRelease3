@@ -9,9 +9,10 @@ interface LoanDetailsProps {
     loanProducts: LoanProduct[];
     onFieldChange: (field: keyof LoanFormData, value: string) => void;
     customerActiveLoans?: number[];
+    isEditMode?: boolean;
 }
 
-export const LoanDetails: React.FC<LoanDetailsProps> = ({ formData, loanProducts, onFieldChange, customerActiveLoans = [] }) => {
+export const LoanDetails: React.FC<LoanDetailsProps> = ({ formData, loanProducts, onFieldChange, customerActiveLoans = [], isEditMode = false }) => {
     const selectedProduct = loanProducts.find(p => p.id === Number(formData.loanProduct));
     const isAlreadyTaken = customerActiveLoans.includes(Number(formData.loanProduct));
 
@@ -32,11 +33,11 @@ export const LoanDetails: React.FC<LoanDetailsProps> = ({ formData, loanProducts
                         <option value="">Choose a product</option>
                         {loanProducts.map((product) => (
                             <option key={product.id} value={product.id}>
-                                {product.product_name} {customerActiveLoans.includes(product.id) ? '(Already Active)' : ''}
+                                {product.product_name} {customerActiveLoans.includes(product.id) && !isEditMode ? '(Already Active)' : ''}
                             </option>
                         ))}
                     </select>
-                    {isAlreadyTaken && selectedProduct && (
+                    {isAlreadyTaken && selectedProduct && !isEditMode && (
                         <p className="text-sm font-bold text-red-600 mt-2 animate-pulse">
                             Wait! This customer already has an active {selectedProduct.product_name} loan.
                         </p>

@@ -10,9 +10,10 @@ interface ReviewSubmitProps {
     formData: LoanFormData;
     selectedCustomerRecord?: CustomerRecord | null;
     staffs: Staff[];
+    isEditMode?: boolean;
 }
 
-export const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, selectedCustomerRecord, staffs }) => {
+export const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, selectedCustomerRecord, staffs, isEditMode = false }) => {
     const totalFees = calculateTotalFees(formData);
     const netDisbursement = calculateNetDisbursement(formData);
 
@@ -177,9 +178,9 @@ export const ReviewSubmit: React.FC<ReviewSubmitProps> = ({ formData, selectedCu
                 <div className="flex gap-3">
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-sm font-medium text-green-900">Ready to Submit</p>
+                        <p className="text-sm font-medium text-green-900">Ready to {isEditMode ? 'Resubmit' : 'Submit'}</p>
                         <p className="text-xs text-green-800 mt-1">
-                            Please review all information carefully. Once submitted, the loan application will be
+                            Please review all information carefully. Once {isEditMode ? 'resubmitted' : 'submitted'}, the loan application will be
                             sent for approval.
                         </p>
                     </div>

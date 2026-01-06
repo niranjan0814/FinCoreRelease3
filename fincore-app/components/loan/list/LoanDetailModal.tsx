@@ -86,7 +86,7 @@ export function LoanDetailModal({ loan, onClose }: LoanDetailModalProps) {
                 {isFieldOfficer && (loan.status === 'sent_back' || loan.status === 'pending_1st' || loan.status === 'pending_2nd') && (
                     <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
                         <button
-                            onClick={() => window.location.href = `/loans/create?edit=${loan.id}`}
+                            onClick={() => window.location.href = `/loans/edit?edit=${loan.id}`}
                             className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 transform hover:-translate-y-1 active:scale-95"
                         >
                             {loan.status === 'sent_back' ? 'Modify & Resubmit Application' : 'Modify Application'}

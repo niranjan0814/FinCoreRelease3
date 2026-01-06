@@ -7,6 +7,8 @@ use App\Models\Receipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Notifications\ReceiptStatusNotification;
 
 class ReceiptController extends Controller
 {
@@ -89,6 +91,46 @@ class ReceiptController extends Controller
                 'cancellation_requested_by' => auth()->id(),
             ]);
 
+            // Notify Branch Managers
+            try {
+                $user = auth()->user();
+                $actorInfo = $this->getActorInfo($user);
+                $branchId = $receipt->center->branch_id;
+
+                // Find managers in this branch
+                $managers = User::whereHas('roles', function($q) {
+                    $q->whereIn('name', ['manager', 'branch_manager']);
+                })->whereHas('staff', function($q) use ($branchId) {
+                    $q->where('branch_id', $branchId);
+                })->get();
+
+                // FALLBACK: If no branch-specific managers found, notify ALL managers
+                // This ensures notifications aren't lost if staff-branch linking is incomplete
+                if ($managers->isEmpty()) {
+                    $managers = User::whereHas('roles', function($q) {
+                        $q->whereIn('name', ['manager', 'branch_manager']);
+                    })->get();
+                }
+
+                // If still empty, notify admins
+                if ($managers->isEmpty()) {
+                    $managers = User::whereHas('roles', function($q) {
+                        $q->where('name', 'admin');
+                    })->get();
+                }
+
+                foreach ($managers as $manager) {
+                    $manager->notify(new ReceiptStatusNotification(
+                        ReceiptStatusNotification::ACTION_CANCELLATION_REQUESTED,
+                        $receipt,
+                        $actorInfo,
+                        $request->reason
+                    ));
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send receipt cancellation notification: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Cancellation requested successfully. Waiting for manager approval.',
@@ -146,7 +188,8 @@ class ReceiptController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($id) {
+            // We use $result to capture the transaction return value
+            $result = DB::transaction(function () use ($id, &$originalRequesterId) {
                 $receipt = Receipt::findOrFail($id);
 
                 if ($receipt->status !== 'cancellation_pending') {
@@ -155,6 +198,9 @@ class ReceiptController extends Controller
                         'message' => 'Receipt is not pending cancellation'
                     ], 400);
                 }
+
+                // Capture the requester ID BEFORE we update anything
+                $originalRequesterId = $receipt->cancellation_requested_by;
 
                 $receipt->update([
                     'status' => 'cancelled',
@@ -193,9 +239,7 @@ class ReceiptController extends Controller
                         $loan->status = \App\Models\Loan::STATUS_ACTIVE;
                     }
 
-                    $loan->save();
-
-                    // 3. Mark the payment record as cancelled
+                // 3. Mark the payment record as cancelled
                     $payment->update(['status' => 'cancelled']);
                 }
 
@@ -205,6 +249,25 @@ class ReceiptController extends Controller
                     'data' => $receipt
                 ]);
             });
+
+            // Notify the field officer who requested it (Perform OUTSIDE transaction to avoid blocking)
+            if ($originalRequesterId) {
+                try {
+                    $requester = User::find($originalRequesterId);
+                    if ($requester) {
+                        $actorInfo = $this->getActorInfo(auth()->user());
+                        $requester->notify(new ReceiptStatusNotification(
+                            ReceiptStatusNotification::ACTION_CANCELLATION_APPROVED,
+                            $receipt, // $receipt is refreshed/updated object
+                            $actorInfo // Manager info
+                        ));
+                    }
+                } catch (\Exception $e) {
+                     Log::error('Failed to send receipt approval notification: ' . $e->getMessage());
+                }
+            }
+            
+            return $result; // Return the JSON response captured from transaction
 
         } catch (\Exception $e) {
             return response()->json([
@@ -234,11 +297,31 @@ class ReceiptController extends Controller
                 ], 400);
             }
 
+            // Capture the requester ID BEFORE we update and clear it
+            $originalRequesterId = $receipt->cancellation_requested_by;
+
             $receipt->update([
                 'status' => 'active', // Back to active
                 'cancellation_reason' => null,
                 'cancellation_requested_by' => null,
             ]);
+
+            // Notify the field officer who requested it
+            if ($originalRequesterId) {
+                try {
+                    $requester = User::find($originalRequesterId);
+                    if ($requester) {
+                         $actorInfo = $this->getActorInfo(auth()->user());
+                         $requester->notify(new ReceiptStatusNotification(
+                             ReceiptStatusNotification::ACTION_CANCELLATION_REJECTED,
+                             $receipt,
+                             $actorInfo
+                         ));
+                    }
+                } catch (\Exception $e) {
+                     Log::error('Failed to send receipt rejection notification: ' . $e->getMessage());
+                }
+            }
 
             return response()->json([
                 'status' => 'success',
@@ -282,5 +365,30 @@ class ReceiptController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Helper to get actor info for notification
+     */
+    private function getActorInfo($user)
+    {
+        $role = $user->getRoleNames()->first() ?? '';
+        $formattedRole = ucwords(str_replace('_', ' ', $role));
+        
+        $name = null;
+        if ($user->staff) {
+             // Prioritize Full Name as requested
+             $name = $user->staff->full_name ?? $user->staff->name_with_initial;
+        } elseif (strpos($user->user_name, ' ') !== false) {
+             $name = $user->user_name;
+        }
+        
+        $displayName = $name ? trim($formattedRole . ' ' . $name) : $formattedRole;
+        if (empty($displayName)) $displayName = 'System';
+
+        return [
+            'id' => $user->id,
+            'name' => $displayName,
+        ];
     }
 }

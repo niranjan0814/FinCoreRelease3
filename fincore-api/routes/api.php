@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CenterChangeRequestController;
 use App\Http\Controllers\Api\CustomerEditRequestController;
 use App\Http\Controllers\Api\ShareholderController;
+use App\Http\Controllers\Api\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +63,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
+
+    // Notification Management
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::get('/{id}', [NotificationController::class, 'show']);
+        Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::patch('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::patch('/{id}/unread', [NotificationController::class, 'markAsUnread']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+        Route::delete('/', [NotificationController::class, 'destroyAll']);
+    });
 
     // Branch Management
     Route::prefix('branches')->group(function () {
@@ -266,12 +279,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Receipts
         Route::prefix('receipts')->group(function () {
-            Route::get('/pending-cancellations', [App\Http\Controllers\Api\ReceiptController::class, 'pendingCancellations']);
-            Route::post('/', [App\Http\Controllers\Api\ReceiptController::class, 'store']);
-            Route::get('/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show']);
-            Route::post('/{id}/cancel-request', [App\Http\Controllers\Api\ReceiptController::class, 'requestCancellation']);
-            Route::post('/{id}/approve-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'approveCancellation']);
-            Route::post('/{id}/reject-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'rejectCancellation']);
+            Route::get('/pending-cancellations', [App\Http\Controllers\Api\ReceiptController::class, 'pendingCancellations'])->middleware('permission:receipts.approvecancel');
+            Route::post('/', [App\Http\Controllers\Api\ReceiptController::class, 'store'])->middleware('permission:receipts.create');
+            Route::get('/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show'])->middleware('permission:receipts.view'); // or collections.view
+            Route::post('/{id}/cancel-request', [App\Http\Controllers\Api\ReceiptController::class, 'requestCancellation'])->middleware('permission:receipts.cancel');
+            Route::post('/{id}/approve-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'approveCancellation'])->middleware('permission:receipts.approvecancel');
+            Route::post('/{id}/reject-cancel', [App\Http\Controllers\Api\ReceiptController::class, 'rejectCancellation'])->middleware('permission:receipts.approvecancel');
         });
 
         // Complaints
@@ -282,6 +295,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/collections/export', [\App\Http\Controllers\Api\CollectionController::class, 'export'])->middleware('permission:collections.view');
         Route::post('/collections/collect', [\App\Http\Controllers\Api\CollectionController::class, 'collectPayment'])->middleware('permission:receipts.create');
         Route::get('/collections/history/{loanId}', [\App\Http\Controllers\Api\CollectionController::class, 'getCollectionHistory'])->middleware('permission:collections.view');
+        Route::post('/collections/loans/{id}/extend-due-date', [\App\Http\Controllers\Api\CollectionController::class, 'extendDueDate'])->middleware('permission:collections.view');
+
+        // Due List (for scheduled payments view)
+        Route::prefix('due-list')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\CollectionController::class, 'getDueList'])->middleware('permission:collections.view');
+            Route::get('/summary', [\App\Http\Controllers\Api\CollectionController::class, 'getDueListSummary'])->middleware('permission:collections.view');
+            Route::get('/export', [\App\Http\Controllers\Api\CollectionController::class, 'exportDueList'])->middleware('permission:collections.view');
+        });
 
         // Center Change Requests
         Route::prefix('center-requests')->group(function () {
@@ -334,6 +355,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/', [CustomerEditRequestController::class, 'index'])->middleware('permission:customers.edit');
             Route::post('/{id}/approve', [CustomerEditRequestController::class, 'approve'])->middleware('permission:customers.edit');
             Route::post('/{id}/reject', [CustomerEditRequestController::class, 'reject'])->middleware('permission:customers.edit');
+        });
+
+        // Customer Activities
+        Route::prefix('customer-activities')->group(function () {
+            Route::post('/', [\App\Http\Controllers\Api\CustomerActivityController::class, 'store'])->middleware('permission:customers.edit');
+            Route::get('/customer/{customerId}', [\App\Http\Controllers\Api\CustomerActivityController::class, 'index'])->middleware('permission:customers.view');
         });
 
         // Shareholders
