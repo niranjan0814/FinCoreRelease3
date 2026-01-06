@@ -132,13 +132,49 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
     // Determine current page ID from pathname
     const getCurrentPage = (): Page => {
-        if (pathname === '/' || pathname === '/dashboard') return 'dashboard';
-        if (pathname === '/customers/requests') return 'customer-requests';
+        // Reverse route map: path -> pageId
+        const pathToPageMap: Record<string, Page> = {
+            '/': 'dashboard',
+            '/dashboard': 'dashboard',
+            '/branches': 'branches',
+            '/centers': 'centers',
+            '/meeting-scheduling': 'meeting-scheduling',
+            '/groups': 'groups',
+            '/customers': 'customers',
+            '/customers/requests': 'customer-requests',
+            '/loans/create': 'loan-create',
+            '/loans/approval': 'loan-approval',
+            '/loans/sent-back': 'loan-sent-back',
+            '/loans': 'loan-list',
+            '/loan-product': 'loan-product',
+            '/roles-privileges': 'roles-privileges',
+            '/collections/rejections': 'receipt-rejections',
+            '/collections/due-list': 'due-list',
+            '/collections': 'collections',
+            '/collections/summary': 'collection-summary',
+            '/reports': 'reports',
+            '/finance': 'finance',
+            '/fund-transactions': 'fund-transactions',
+            '/branch-transactions': 'branch-transactions',
+            '/investments': 'investments',
+            '/staff-management': 'staff-management',
+            '/shareholders': 'shareholders',
+            '/complaints': 'complaints',
+            '/system-config': 'system-config',
+            '/documents': 'documents',
+            '/public-website': 'public-website',
+            '/center-requests': 'center-requests',
+        };
 
-        // Extract the first segment after the slash
+        // Check for exact match first
+        if (pathToPageMap[pathname]) {
+            return pathToPageMap[pathname];
+        }
+
+        // Fallback: Extract last segment for dynamic routes
         const segments = pathname.split('/').filter(Boolean);
         if (segments.length > 0) {
-            return segments[0];
+            return segments[segments.length - 1] as Page;
         }
 
         return 'dashboard';
@@ -162,6 +198,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'receipt-rejections': '/collections/rejections',
             'due-list': '/collections/due-list',
             'collections': '/collections',
+            'collection-summary': '/collections/summary',
         };
 
         const path = routeMap[pageId as string] || `/${pageId}`;

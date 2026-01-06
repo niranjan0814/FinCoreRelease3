@@ -1,0 +1,99 @@
+'use client'
+
+import React, { useState, useEffect } from 'react';
+import { CollectionSummaryFilters } from './CollectionSummaryFilters';
+import { CollectionStats } from './CollectionStats';
+import { CollectionBranchTable } from './CollectionBranchTable';
+import { CollectionTrendChart } from './CollectionTrendChart';
+import { collectionSummaryService } from '../../../services/collectionSummary.service';
+import { toast } from 'react-toastify';
+import { BranchCollection, SummaryStats } from './types';
+
+export function CollectionSummary() {
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const today = new Date();
+        // Adjust for local timezone to ensure we don't get yesterday's date via UTC
+        const offset = today.getTimezoneOffset();
+        const localDate = new Date(today.getTime() - (offset * 60 * 1000));
+        return localDate.toISOString().split('T')[0];
+    });
+    const [viewType, setViewType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+    const [isLoading, setIsLoading] = useState(true);
+    const [branchCollections, setBranchCollections] = useState<BranchCollection[]>([]);
+
+    useEffect(() => {
+        loadData();
+    }, [selectedDate, viewType]);
+
+    const loadData = async () => {
+        try {
+            setIsLoading(true);
+            const data = await collectionSummaryService.getSummary(selectedDate, viewType);
+            setBranchCollections(data);
+        } catch (error) {
+            console.error('Failed to load collection summary:', error);
+            toast.error('Failed to load summary data');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            await collectionSummaryService.exportSummary(selectedDate, viewType);
+            toast.success('Export started');
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error('Failed to export data');
+        }
+    };
+
+    // Calculate aggregated stats from branch data using new structure
+    const stats: SummaryStats = branchCollections.reduce((acc, curr) => ({
+        totalTarget: acc.totalTarget + curr.target,
+        totalCollected: acc.totalCollected + curr.collected,
+        totalVariance: acc.totalVariance + curr.variance,
+        totalActiveCustomers: acc.totalActiveCustomers + curr.total_active_customers,
+        totalDueCustomers: acc.totalDueCustomers + curr.due_customers,
+        totalPaidCustomers: acc.totalPaidCustomers + curr.paid_customers,
+        achievement: 0, // Will be calculated below
+    }), {
+        totalTarget: 0,
+        totalCollected: 0,
+        totalVariance: 0,
+        totalActiveCustomers: 0,
+        totalDueCustomers: 0,
+        totalPaidCustomers: 0,
+        achievement: 0
+    });
+
+    // Calculate achievement percentage
+    stats.achievement = stats.totalTarget > 0
+        ? parseFloat(((stats.totalCollected / stats.totalTarget) * 100).toFixed(1))
+        : (stats.totalCollected > 0 ? 100 : 0);
+
+    return (
+        <div className="space-y-6">
+            <CollectionSummaryFilters
+                viewType={viewType}
+                onViewTypeChange={setViewType}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onExport={handleExport}
+                isLoading={isLoading}
+            />
+
+            <CollectionStats
+                stats={stats}
+                isLoading={isLoading}
+            />
+
+            <CollectionBranchTable
+                branchCollections={branchCollections}
+                isLoading={isLoading}
+            />
+
+            <CollectionTrendChart />
+        </div>
+    );
+}

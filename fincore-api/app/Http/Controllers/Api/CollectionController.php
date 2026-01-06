@@ -579,9 +579,9 @@ class CollectionController extends Controller
                 // Determine schedule details
                 $termType = optional($loan->product)->term_type ?? 'Weekly';
                 $agreementDate = $loan->agreement_date 
-                    ? \Carbon\Carbon::parse($loan->agreement_date) 
-                    : \Carbon\Carbon::parse($loan->created_at);
-                $selectedDate = \Carbon\Carbon::parse($date);
+                    ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
+                    : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
+                $selectedDate = \Carbon\Carbon::parse($date)->startOfDay();
                 
                 // Calculate Next Due Date (if showing all) or check specific date
                 $itemDueDate = $date;
@@ -589,7 +589,7 @@ class CollectionController extends Controller
 
                 if ($showAll) {
                     // Find the next occurrence of the due date on or after today
-                    $today = \Carbon\Carbon::now();
+                    $today = \Carbon\Carbon::now()->startOfDay();
                     
                     // 1. Calculate Standard Next Due Date
                     $standardNextDue = null;
