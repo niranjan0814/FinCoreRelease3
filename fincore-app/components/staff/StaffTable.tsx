@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Edit, Trash2, Unlock, Lock, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Edit, Trash2, Unlock, Lock, CheckCircle, XCircle, Clock, AlertCircle, History as HistoryIcon } from 'lucide-react';
 import { User } from '../../types/staff.types';
 import { staffService } from '../../services/staff.service';
 import { sessionService } from '../../services/session.service';
 import { StaffDetailsModal } from './StaffDetailsModal';
+import { SessionHistoryModal } from './SessionHistoryModal';
 import { toast } from 'react-toastify';
 
 interface StaffTableProps {
@@ -18,6 +19,13 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [historyUser, setHistoryUser] = useState<User | null>(null);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+    const handleViewHistory = (user: User) => {
+        setHistoryUser(user);
+        setShowHistoryModal(true);
+    };
     const [confirmModal, setConfirmModal] = useState<{
         show: boolean;
         title: string;
@@ -284,10 +292,22 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                                 {/* Attendance */}
                                 <div className="col-span-2">
                                     {getAttendanceStatusBadge(user)}
+                                    {user.today_session?.login_at && (
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 pl-1">
+                                            Login: {new Date(user.today_session.login_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Actions */}
                                 <div className="col-span-3 flex items-center gap-1 flex-wrap">
+                                    <button
+                                        onClick={() => handleViewHistory(user)}
+                                        className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded text-purple-600 dark:text-purple-400"
+                                        title="View Activity History"
+                                    >
+                                        <HistoryIcon className="w-4 h-4" />
+                                    </button>
                                     {/* Reopen/Unlock/Lock Button */}
                                     {isLocked || canReopen ? (
                                         <button
@@ -395,6 +415,18 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                     onClose={() => {
                         setShowDetailsModal(false);
                         setSelectedStaff(null);
+                    }}
+                />
+            )}
+
+            {/* Session History Modal */}
+            {showHistoryModal && historyUser && (
+                <SessionHistoryModal
+                    userId={historyUser.id}
+                    userName={historyUser.name}
+                    onClose={() => {
+                        setShowHistoryModal(false);
+                        setHistoryUser(null);
                     }}
                 />
             )}

@@ -463,5 +463,56 @@ export const sessionService = {
             console.error('Get user sessions error:', error);
             throw error;
         }
+    },
+    /**
+     * Get user session summary (login counts, duration, etc.)
+     */
+    getUserSessionSummary: async (userId: number): Promise<any> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/sessions/user/${userId}/summary`, {
+                method: 'GET',
+                headers: getHeaders()
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to fetch user session summary');
+            }
+
+            return data.data;
+        } catch (error) {
+            console.error('Get user session summary error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get user session history with pagination and filtering
+     */
+    getUserSessionHistory: async (userId: number, filters: { startDate?: string, endDate?: string, limit?: number, offset?: number } = {}): Promise<any> => {
+        try {
+            const params = new URLSearchParams();
+            if (filters.startDate) params.append('start_date', filters.startDate);
+            if (filters.endDate) params.append('end_date', filters.endDate);
+            if (filters.limit) params.append('limit', filters.limit.toString());
+            if (filters.offset !== undefined) params.append('offset', filters.offset.toString());
+
+            const response = await fetch(`${API_BASE_URL}/sessions/user/${userId}/history?${params.toString()}`, {
+                method: 'GET',
+                headers: getHeaders()
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to fetch user session history');
+            }
+
+            return data.data;
+        } catch (error) {
+            console.error('Get user session history error:', error);
+            throw error;
+        }
     }
 };

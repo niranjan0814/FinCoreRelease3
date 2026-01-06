@@ -185,6 +185,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{sessionId}/approve', [StaffSessionController::class, 'approveAttendance']);
         Route::post('/{sessionId}/reject', [StaffSessionController::class, 'rejectAttendance']);
         Route::get('/user/{userId}', [StaffSessionController::class, 'getUserSessions']);
+        Route::get('/user/{userId}/summary', [StaffSessionController::class, 'getUserSessionSummary']);
+        Route::get('/user/{userId}/history', [StaffSessionController::class, 'getUserSessionHistory']);
         Route::post('/user/{userId}/unlock', [StaffSessionController::class, 'unlockUserAccount']);
         Route::post('/user/{userId}/lock', [StaffSessionController::class, 'lockUserAccount']);
         Route::get('/attendance-report', [StaffSessionController::class, 'getAttendanceReport']);

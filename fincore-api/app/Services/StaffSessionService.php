@@ -153,7 +153,19 @@ class StaffSessionService
      */
     public function getTotalWorkedMinutes(User $user, $date): int
     {
-        return StaffSession::getTotalWorkedMinutesForDate($user->id, $date);
+        $totalMinutes = StaffSession::getTotalWorkedMinutesForDate($user->id, $date);
+
+        // Include minutes from currently open session
+        $openSession = StaffSession::where('user_id', $user->id)
+            ->where('date', $date)
+            ->where('status', StaffSession::STATUS_OPEN)
+            ->first();
+
+        if ($openSession && $openSession->login_at) {
+            $totalMinutes += $openSession->login_at->diffInMinutes(now());
+        }
+
+        return $totalMinutes;
     }
 
     /**

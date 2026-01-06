@@ -422,6 +422,171 @@ class StaffSessionController extends BaseController
         ], 'Attendance report generated successfully');
     }
 
+    /**
+     * Get session summary statistics for a specific user (for managers)
+     * Shows login count, average duration, etc.
+     */
+    public function getUserSessionSummary(Request $request, $userId)
+    {
+        if (!$request->user()->hasPermissionTo('staff.view')) {
+            return $this->forbidden('Permission denied');
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return $this->notFound('User not found');
+        }
+
+        // Get current month dates (calendar month)
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd = now()->endOfMonth()->toDateString();
+        
+        // Get current week dates
+        $weekStart = now()->startOfWeek()->toDateString();
+        $weekEnd = now()->endOfWeek()->toDateString();
+
+        // Total logins (all time)
+        $totalLogins = StaffSession::where('user_id', $userId)->count();
+        
+        // This month logins
+        $monthLogins = StaffSession::where('user_id', $userId)
+            ->whereBetween('date', [$monthStart, $monthEnd])
+            ->count();
+        
+        // This week logins
+        $weekLogins = StaffSession::where('user_id', $userId)
+            ->whereBetween('date', [$weekStart, $weekEnd])
+            ->count();
+        
+        // Total worked minutes this month
+        $monthWorkedMinutes = StaffSession::where('user_id', $userId)
+            ->whereBetween('date', [$monthStart, $monthEnd])
+            ->where('status', StaffSession::STATUS_CLOSED)
+            ->sum('worked_minutes');
+        
+        // Average session duration (from closed sessions)
+        $avgDuration = StaffSession::where('user_id', $userId)
+            ->where('status', StaffSession::STATUS_CLOSED)
+            ->where('worked_minutes', '>', 0)
+            ->avg('worked_minutes') ?? 0;
+        
+        // Last session info
+        $lastSession = StaffSession::where('user_id', $userId)
+            ->orderBy('login_at', 'desc')
+            ->first();
+        
+        // Current session (if any)
+        $currentSession = StaffSession::where('user_id', $userId)
+            ->where('status', StaffSession::STATUS_OPEN)
+            ->first();
+        
+        // Calculate current session duration if logged in
+        $currentDuration = 0;
+        $isCurrentlyLoggedIn = false;
+        if ($currentSession) {
+            $isCurrentlyLoggedIn = true;
+            $currentDuration = $currentSession->login_at->diffInMinutes(now());
+        }
+
+        return $this->success([
+            'user_id' => $userId,
+            'total_logins' => $totalLogins,
+            'total_logins_this_month' => $monthLogins,
+            'total_logins_this_week' => $weekLogins,
+            'total_worked_minutes_this_month' => (int) $monthWorkedMinutes,
+            'total_worked_hours_this_month' => round($monthWorkedMinutes / 60, 2),
+            'average_session_duration_minutes' => (int) round($avgDuration),
+            'average_session_duration_hours' => round($avgDuration / 60, 2),
+            'last_login_at' => $lastSession?->login_at?->toIso8601String(),
+            'last_logout_at' => $lastSession?->logout_at?->toIso8601String(),
+            'is_currently_logged_in' => $isCurrentlyLoggedIn,
+            'current_session_duration_minutes' => $currentDuration,
+            'month_period' => [
+                'start' => $monthStart,
+                'end' => $monthEnd,
+            ],
+        ], 'User session summary retrieved successfully');
+    }
+
+    /**
+     * Get session history for a specific user with date filtering (for managers)
+     * Returns paginated sessions with load more support
+     */
+    public function getUserSessionHistory(Request $request, $userId)
+    {
+        if (!$request->user()->hasPermissionTo('staff.view')) {
+            return $this->forbidden('Permission denied');
+        }
+
+        $request->validate([
+            'start_date' => 'nullable|date|date_format:Y-m-d',
+            'end_date' => 'nullable|date|date_format:Y-m-d|after_or_equal:start_date',
+            'limit' => 'nullable|integer|min:5|max:50',
+            'offset' => 'nullable|integer|min:0',
+        ]);
+
+        $user = User::find($userId);
+        if (!$user) {
+            return $this->notFound('User not found');
+        }
+
+        $limit = $request->limit ?? 10;
+        $offset = $request->offset ?? 0;
+
+        $query = StaffSession::where('user_id', $userId);
+
+        // Apply date filters
+        if ($request->start_date) {
+            $query->where('date', '>=', $request->start_date);
+        }
+        if ($request->end_date) {
+            $query->where('date', '<=', $request->end_date);
+        }
+
+        // Get total count for pagination
+        $totalCount = $query->count();
+
+        // Get sessions with pagination (offset-based for load more)
+        $sessions = $query->orderBy('date', 'desc')
+            ->orderBy('login_at', 'desc')
+            ->skip($offset)
+            ->take($limit)
+            ->get();
+
+        // Calculate summary for the filtered period
+        $summaryQuery = StaffSession::where('user_id', $userId);
+        if ($request->start_date) {
+            $summaryQuery->where('date', '>=', $request->start_date);
+        }
+        if ($request->end_date) {
+            $summaryQuery->where('date', '<=', $request->end_date);
+        }
+        
+        $totalMinutes = (clone $summaryQuery)
+            ->where('status', StaffSession::STATUS_CLOSED)
+            ->sum('worked_minutes');
+
+        return $this->success([
+            'user' => [
+                'id' => $user->id,
+                'user_name' => $user->user_name,
+                'full_name' => $user->staffDetail?->full_name ?? $user->user_name,
+            ],
+            'sessions' => $sessions->map(fn ($s) => $this->formatSession($s)),
+            'pagination' => [
+                'total' => $totalCount,
+                'offset' => $offset,
+                'limit' => $limit,
+                'has_more' => ($offset + $limit) < $totalCount,
+            ],
+            'period_summary' => [
+                'total_sessions' => $totalCount,
+                'total_worked_minutes' => (int) $totalMinutes,
+                'total_worked_hours' => round($totalMinutes / 60, 2),
+            ],
+        ], 'User session history retrieved successfully');
+    }
+
     // ==================== HELPER METHODS ====================
 
     /**
