@@ -92,6 +92,9 @@ class Loan extends Model
         'staff_id',
         'loan_id',
         'agreement_date',
+        'activation_date',
+        'first_due_date',
+        'due_day',
         'customer_id',
         'group_id',
         'request_amount',
@@ -129,6 +132,9 @@ class Loan extends Model
 
     protected $casts = [
         'agreement_date' => 'date',
+        'activation_date' => 'date',
+        'first_due_date' => 'date',
+        'due_day' => 'integer',
         'end_term' => 'date',
         'request_amount' => 'decimal:2',
         'approved_amount' => 'decimal:2',

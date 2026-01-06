@@ -491,7 +491,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
                     <div className="flex gap-4">
                         {isFieldOfficer && (loan.status === 'Pending 1st' || loan.status === 'Pending 2nd' || loan.status === 'Sent Back') && (
                             <button
-                                onClick={() => window.location.href = `/loans/create?edit=${loan.id}`}
+                                onClick={() => window.location.href = `/loans/edit?edit=${loan.id}`}
                                 className="flex items-center gap-2 px-8 py-3.5 bg-orange-50 border border-orange-200 text-orange-600 font-black rounded-2xl hover:bg-orange-100 transition-all shadow-sm"
                             >
                                 Edit Application

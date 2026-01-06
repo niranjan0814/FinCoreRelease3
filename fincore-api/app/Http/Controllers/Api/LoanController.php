@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
+use App\Services\LoanDueDateService;
 use Illuminate\Http\Request;
 use App\Notifications\LoanStatusNotification;
+use Carbon\Carbon;
 
 class LoanController extends Controller
 {
@@ -251,6 +253,9 @@ class LoanController extends Controller
                         $loan->approval_level = 2;
                         $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
                         
+                        // Calculate and set due date fields
+                        $this->setLoanDueDateFields($loan);
+                        
                         // Ensure rental is calculated before creating record
                         if (!$loan->rentel || $loan->rentel <= 0) {
                             $loan->rentel = $this->calculateRental($loan);
@@ -265,6 +270,9 @@ class LoanController extends Controller
                     $loan->status = Loan::STATUS_ACTIVE;
                     $loan->approval_level = 2;
                     $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
+                    
+                    // Calculate and set due date fields
+                    $this->setLoanDueDateFields($loan);
                     
                     // Ensure rental is calculated before creating record
                     if (!$loan->rentel || $loan->rentel <= 0) {
@@ -300,6 +308,25 @@ class LoanController extends Controller
                         $reason
                     )
                 );
+            }
+
+            // Send notification to the Branch Manager
+            if ($notificationAction && $loan->center && $loan->center->branch && $loan->center->branch->manager) {
+                $managerStaff = $loan->center->branch->manager;
+                // Find the user associated with the manager staff record
+                $managerUser = \App\Models\User::where('user_name', $managerStaff->staff_id)->first();
+                
+                // Notify if manager user exists and is not the same person as the field officer (to avoid duplicates)
+                if ($managerUser && (!$loan->staff || $managerUser->id !== $loan->staff->id)) {
+                    $managerUser->notify(
+                        new LoanStatusNotification(
+                            $notificationAction,
+                            $loan,
+                            $managerInfo,
+                            $reason
+                        )
+                    );
+                }
             }
             
             // Reload with relations for the response
@@ -511,5 +538,52 @@ class LoanController extends Controller
         // Formula: (Principal + Total Interest) / Number of Terms
         $totalInterest = $principal * $interestRate;
         return round(($principal + $totalInterest) / $terms, 2);
+    }
+
+    /**
+     * Helper to calculate and set due date fields when loan becomes ACTIVE.
+     * 
+     * Business Rules (Company Standard):
+     * - Fixed due days: 1, 8, 15, 22
+     * - First due date uses skip-next-due logic based on activation date
+     * 
+     * Activation Windows → First Due:
+     * - 1–7   → 15
+     * - 8–14  → 22
+     * - 15–21 → Next month 1
+     * - 22–end of month → Next month 8
+     */
+    private function setLoanDueDateFields($loan)
+    {
+        try {
+            $dueDateService = new LoanDueDateService();
+            $activationDate = Carbon::now();
+            
+            // Get term type from product (default to Weekly)
+            $termType = optional($loan->product)->term_type ?? 'Weekly';
+            
+            // Calculate first due date and assigned due day
+            $result = $dueDateService->calculateFirstDueDate($activationDate, $termType);
+            
+            // Set the loan fields
+            $loan->activation_date = $activationDate;
+            $loan->first_due_date = $result['first_due_date'];
+            $loan->due_day = $result['due_day'];
+            
+            \Log::info("Loan due date fields set", [
+                'loan_id' => $loan->loan_id,
+                'activation_date' => $activationDate->format('Y-m-d'),
+                'first_due_date' => $result['first_due_date']->format('Y-m-d'),
+                'due_day' => $result['due_day'],
+                'term_type' => $termType,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Failed to set due date fields for loan", [
+                'loan_id' => $loan->loan_id ?? $loan->id,
+                'error' => $e->getMessage(),
+            ]);
+            // Don't throw - allow loan activation to proceed even if due date calc fails
+            // The system will fall back to legacy logic for collections
+        }
     }
 }

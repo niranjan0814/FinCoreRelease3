@@ -7,6 +7,7 @@ use App\Models\Loan;
 use App\Models\CustomerLoanPayment;
 use App\Models\LoanDueDateExtension;
 use App\Models\Receipt;
+use App\Services\LoanDueDateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -93,31 +94,39 @@ class CollectionController extends Controller
                 } 
 
                 $termType = $loan->product->term_type ?? 'Weekly';
-                // Fallback to created_at if agreement_date is missing
-                $agreementDate = $loan->agreement_date 
-                    ? Carbon::parse($loan->agreement_date) 
-                    : Carbon::parse($loan->created_at);
-                    
                 $selectedDate = Carbon::parse($date);
                 
                 // Check 2: Standard Schedule (Naturally Due)
+                // Use new service-based logic if loan has due_day, otherwise fallback to legacy
                 $isNaturallyDue = false;
-                if ($selectedDate->gte($agreementDate)) {
-                    if ($termType === 'Monthly') {
-                        // Match day of month (e.g., 5th == 5th)
-                        if ($agreementDate->day === $selectedDate->day) {
-                            $isNaturallyDue = true;
-                        }
-                    } elseif ($termType === 'Bi-Weekly') {
-                        // Match every 14 days
-                        $daysDiff = $agreementDate->diffInDays($selectedDate);
-                        if ($daysDiff % 14 === 0) {
-                            $isNaturallyDue = true;
-                        }
-                    } else {
-                        // Weekly: Match day of week (e.g., Monday == Monday)
-                        if ($agreementDate->dayOfWeek === $selectedDate->dayOfWeek) {
-                            $isNaturallyDue = true;
+                
+                if ($loan->due_day) {
+                    // NEW LOGIC: Use LoanDueDateService for loans with fixed due day
+                    $dueDateService = new LoanDueDateService();
+                    $isNaturallyDue = $dueDateService->isNaturallyDueOnDate($loan, $selectedDate);
+                } else {
+                    // LEGACY LOGIC: For existing loans without due_day field
+                    $agreementDate = $loan->agreement_date 
+                        ? Carbon::parse($loan->agreement_date) 
+                        : Carbon::parse($loan->created_at);
+                        
+                    if ($selectedDate->gte($agreementDate)) {
+                        if ($termType === 'Monthly') {
+                            // Match day of month (e.g., 5th == 5th)
+                            if ($agreementDate->day === $selectedDate->day) {
+                                $isNaturallyDue = true;
+                            }
+                        } elseif ($termType === 'Bi-Weekly') {
+                            // Match every 14 days
+                            $daysDiff = $agreementDate->diffInDays($selectedDate);
+                            if ($daysDiff % 14 === 0) {
+                                $isNaturallyDue = true;
+                            }
+                        } else {
+                            // Weekly: Match day of week (e.g., Monday == Monday)
+                            if ($agreementDate->dayOfWeek === $selectedDate->dayOfWeek) {
+                                $isNaturallyDue = true;
+                            }
                         }
                     }
                 }
@@ -578,9 +587,6 @@ class CollectionController extends Controller
 
                 // Determine schedule details
                 $termType = optional($loan->product)->term_type ?? 'Weekly';
-                $agreementDate = $loan->agreement_date 
-                    ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
-                    : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
                 $selectedDate = \Carbon\Carbon::parse($date)->startOfDay();
                 
                 // Calculate Next Due Date (if showing all) or check specific date
@@ -590,31 +596,41 @@ class CollectionController extends Controller
                 if ($showAll) {
                     // Find the next occurrence of the due date on or after today
                     $today = \Carbon\Carbon::now()->startOfDay();
-                    
-                    // 1. Calculate Standard Next Due Date
                     $standardNextDue = null;
-                    if ($termType === 'Monthly') {
-                        $nextDue = $today->copy();
-                        if ($today->day > $agreementDate->day) {
-                            $nextDue->addMonth();
-                        }
-                        $nextDue->day = min($agreementDate->day, $nextDue->daysInMonth);
-                        $standardNextDue = $nextDue;
-                    } elseif ($termType === 'Bi-Weekly') {
-                        $daysSinceAgreement = $agreementDate->diffInDays($today);
-                        $cycles = ceil($daysSinceAgreement / 14);
-                        if ($today->lt($agreementDate)) { 
-                             $cycles = 0; 
-                        }
-                        $standardNextDue = $agreementDate->copy()->addDays($cycles * 14);
+                    
+                    if ($loan->due_day) {
+                        // NEW LOGIC: Use service for loans with fixed due day
+                        $dueDateService = new LoanDueDateService();
+                        $standardNextDue = $dueDateService->getNextDueDate($loan, $today);
                     } else {
-                        // Weekly
-                        $dayOfWeek = $agreementDate->dayOfWeek;
-                        $nextDue = $today->copy();
-                        if ($today->dayOfWeek !== $dayOfWeek) {
-                            $nextDue->next($dayOfWeek);
+                        // LEGACY LOGIC: For existing loans without due_day field
+                        $agreementDate = $loan->agreement_date 
+                            ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
+                            : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
+                            
+                        if ($termType === 'Monthly') {
+                            $nextDue = $today->copy();
+                            if ($today->day > $agreementDate->day) {
+                                $nextDue->addMonth();
+                            }
+                            $nextDue->day = min($agreementDate->day, $nextDue->daysInMonth);
+                            $standardNextDue = $nextDue;
+                        } elseif ($termType === 'Bi-Weekly') {
+                            $daysSinceAgreement = $agreementDate->diffInDays($today);
+                            $cycles = ceil($daysSinceAgreement / 14);
+                            if ($today->lt($agreementDate)) { 
+                                 $cycles = 0; 
+                            }
+                            $standardNextDue = $agreementDate->copy()->addDays($cycles * 14);
+                        } else {
+                            // Weekly
+                            $dayOfWeek = $agreementDate->dayOfWeek;
+                            $nextDue = $today->copy();
+                            if ($today->dayOfWeek !== $dayOfWeek) {
+                                $nextDue->next($dayOfWeek);
+                            }
+                            $standardNextDue = $nextDue;
                         }
-                        $standardNextDue = $nextDue;
                     }
                     
                     // 2. Follow extension chain from this date
@@ -644,14 +660,26 @@ class CollectionController extends Controller
                     
                     // 1. Is it NATURALLY due today?
                     $isNaturallyDue = false;
-                    if ($selectedDate->gte($agreementDate)) {
-                        if ($termType === 'Monthly') {
-                            $isNaturallyDue = $agreementDate->day === $selectedDate->day;
-                        } elseif ($termType === 'Bi-Weekly') {
-                            $daysDiff = $agreementDate->diffInDays($selectedDate);
-                            $isNaturallyDue = $daysDiff % 14 === 0;
-                        } else {
-                            $isNaturallyDue = $agreementDate->dayOfWeek === $selectedDate->dayOfWeek;
+                    
+                    if ($loan->due_day) {
+                        // NEW LOGIC: Use service for loans with fixed due day
+                        $dueDateService = new LoanDueDateService();
+                        $isNaturallyDue = $dueDateService->isNaturallyDueOnDate($loan, $selectedDate);
+                    } else {
+                        // LEGACY LOGIC: For existing loans without due_day field
+                        $agreementDate = $loan->agreement_date 
+                            ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
+                            : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
+                            
+                        if ($selectedDate->gte($agreementDate)) {
+                            if ($termType === 'Monthly') {
+                                $isNaturallyDue = $agreementDate->day === $selectedDate->day;
+                            } elseif ($termType === 'Bi-Weekly') {
+                                $daysDiff = $agreementDate->diffInDays($selectedDate);
+                                $isNaturallyDue = $daysDiff % 14 === 0;
+                            } else {
+                                $isNaturallyDue = $agreementDate->dayOfWeek === $selectedDate->dayOfWeek;
+                            }
                         }
                     }
 
