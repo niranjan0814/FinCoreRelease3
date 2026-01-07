@@ -13,8 +13,9 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'Active':
-            case 'approved':
                 return 'bg-green-100 text-green-700';
+            case 'approved':
+                return 'bg-gray-100 text-gray-700 border border-gray-200';
             case 'Pending':
             case 'pending_1st':
             case 'pending_2nd':
@@ -31,6 +32,8 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
     };
 
     const formatStatus = (status: string) => {
+        if (status === 'approved') return 'Pending for Disburse';
+        if (status === 'Active') return 'Disbursed';
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 

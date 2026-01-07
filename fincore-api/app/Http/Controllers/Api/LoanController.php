@@ -53,8 +53,8 @@ class LoanController extends Controller
                     'stats' => [
                         'total_count' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->count(),
                         'active_count' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->count(),
-                        'total_disbursed' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->sum('approved_amount'),
-                        'total_outstanding' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->sum('outstanding_amount'),
+                        'total_disbursed' => Loan::where('status', Loan::STATUS_ACTIVE)->sum('approved_amount'),
+                        'total_outstanding' => Loan::where('status', Loan::STATUS_ACTIVE)->sum('outstanding_amount'),
                     ]
                 ]
             ]);
@@ -249,38 +249,16 @@ class LoanController extends Controller
                         $loan->approval_level = 1;
                         $notificationAction = LoanStatusNotification::ACTION_FIRST_APPROVAL;
                     } else {
-                        $loan->status = Loan::STATUS_ACTIVE;
+                        $loan->status = Loan::STATUS_APPROVED;
                         $loan->approval_level = 2;
                         $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
-                        
-                        // Calculate and set due date fields
-                        $this->setLoanDueDateFields($loan);
-                        
-                        // Ensure rental is calculated before creating record
-                        if (!$loan->rentel || $loan->rentel <= 0) {
-                            $loan->rentel = $this->calculateRental($loan);
-                            $loan->save();
-                        }
-                        
-                        $this->createInitialPaymentRecord($loan);
                     }
                 } elseif ($loan->approval_level === 1) {
                     // Second level approval
                     $history['second'] = $approver;
-                    $loan->status = Loan::STATUS_ACTIVE;
+                    $loan->status = Loan::STATUS_APPROVED;
                     $loan->approval_level = 2;
                     $notificationAction = LoanStatusNotification::ACTION_ACTIVATED;
-                    
-                    // Calculate and set due date fields
-                    $this->setLoanDueDateFields($loan);
-                    
-                    // Ensure rental is calculated before creating record
-                    if (!$loan->rentel || $loan->rentel <= 0) {
-                        $loan->rentel = $this->calculateRental($loan);
-                        $loan->save();
-                    }
-                    
-                    $this->createInitialPaymentRecord($loan);
                 }
                 $loan->approve_history = $history;
             } elseif ($action === 'reject') {
@@ -341,6 +319,77 @@ class LoanController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to process loan approval',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function disburse(Request $request, $id)
+    {
+        try {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $id) {
+                $loan = Loan::with(['customer', 'product', 'center.branch'])->findOrFail($id);
+
+                if ($loan->status !== Loan::STATUS_APPROVED) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Only approved loans can be disbursed.'
+                    ], 422);
+                }
+
+                $user = auth()->user();
+
+                // 1. Mark as Active/Disbursed
+                $loan->status = Loan::STATUS_ACTIVE;
+                
+                // 2. Calculate and set due date fields
+                $this->setLoanDueDateFields($loan);
+                
+                // 3. Ensure rental is calculated
+                if (!$loan->rentel || $loan->rentel <= 0) {
+                    $loan->rentel = $this->calculateRental($loan);
+                }
+                
+                $loan->save();
+
+                // 4. Create Initial Payment Record (Ledger)
+                $this->createInitialPaymentRecord($loan);
+
+                // 5. Create Financial Transaction (Outflow)
+                // Use a default category 'loan_disbursement'
+                $transaction = \App\Models\Transaction::create([
+                    'staff_id' => $user->user_name,
+                    'amount' => $loan->approved_amount,
+                    'type' => 'outflow',
+                    'category' => 'loan_disbursement',
+                    'status' => 'completed',
+                    'related_id' => $loan->id,
+                    'timestamp' => now(),
+                    'description' => "Loan Disbursement: #{$loan->loan_id} for {$loan->customer->full_name}"
+                ]);
+
+                // Record in BranchExpense (as a branch activity disbursement)
+                \App\Models\BranchExpense::create([
+                    'branch_id' => $loan->center->branch_id,
+                    'transaction_id' => $transaction->id,
+                    'type' => 'outflow',
+                    'date' => now()->toDateString(),
+                    'expense_type' => 'Loan Disbursement',
+                    'medium' => 'Cash',
+                    'description' => "Disbursement for Loan #{$loan->loan_id}",
+                    'amount' => $loan->approved_amount,
+                ]);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Loan disbursed successfully and activation completed.',
+                    'data' => $loan
+                ]);
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to disburse loan: ' . $e->getMessage(),
                 'error' => $e->getMessage()
             ], 500);
         }

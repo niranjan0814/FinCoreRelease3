@@ -65,4 +65,12 @@ class Receipt extends Model
     {
         return $this->belongsTo(Loan::class);
     }
+
+    /**
+     * Get the ledger transaction associated with the receipt.
+     */
+    public function transaction()
+    {
+        return $this->hasOne(Transaction::class, 'related_id')->where('category', 'collection');
+    }
 }
