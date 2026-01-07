@@ -7,6 +7,7 @@ import { complaintService } from '@/services/complaint.service';
 import { ComplaintsTable } from './list/ComplaintsTable';
 import { NewComplaintModal } from './modal/NewComplaintModal';
 import { ViewComplaintModal } from './modal/ViewComplaintModal';
+import { Pagination } from '@/components/common/Pagination';
 import { toast } from 'react-toastify';
 
 export default function Complaints() {
@@ -16,6 +17,12 @@ export default function Complaints() {
     const [viewingComplaint, setViewingComplaint] = useState<Complaint | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+
     const [statusCounts, setStatusCounts] = useState({
         open: 0,
         inProgress: 0,
@@ -25,36 +32,46 @@ export default function Complaints() {
 
     const fetchComplaints = async () => {
         setIsLoading(true);
-        // Fetch all generally or filter? Let's fetch all for now or rely on client filtering for small lists.
-        // Or better, pass params. For now, basic list.
-        const { data, meta } = await complaintService.getComplaints(searchTerm, filterStatus);
-        setComplaints(data);
-        if (meta && meta.counts) {
-            setStatusCounts({
-                open: meta.counts.open,
-                inProgress: meta.counts.in_progress,
-                resolved: meta.counts.resolved,
-                closed: meta.counts.closed
-            });
+        try {
+            const { data, meta } = await complaintService.getComplaints(searchTerm, filterStatus, currentPage, itemsPerPage);
+            setComplaints(data);
+            if (meta) {
+                setTotalItems(meta.total || 0);
+                if (meta.counts) {
+                    setStatusCounts({
+                        open: meta.counts.open,
+                        inProgress: meta.counts.in_progress,
+                        resolved: meta.counts.resolved,
+                        closed: meta.counts.closed
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch complaints", error);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
+    // Reset page when filters change
     useEffect(() => {
-        // debounce search or simple effect
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus, itemsPerPage]);
+
+    useEffect(() => {
         const timer = setTimeout(() => {
             fetchComplaints();
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchTerm, filterStatus]);
+    }, [searchTerm, filterStatus, currentPage, itemsPerPage]);
 
     const handleCreateComplaint = async (formData: ComplaintFormData) => {
         try {
             const newComplaint = await complaintService.createComplaint(formData);
             if (newComplaint) {
-                // Refresh list
                 fetchComplaints();
                 setShowModal(false);
+                toast.success('Complaint created successfully');
             }
         } catch (error) {
             toast.error('Failed to create complaint');
@@ -64,21 +81,14 @@ export default function Complaints() {
     const handleStatusChange = async (complaintId: string, newStatus: Complaint['status']) => {
         const success = await complaintService.updateStatus(complaintId, newStatus);
         if (success) {
-            // Optimistic update
             setComplaints(prev => prev.map(c => c.id === complaintId ? { ...c, status: newStatus } : c));
             if (viewingComplaint && viewingComplaint.id === complaintId) {
                 setViewingComplaint({ ...viewingComplaint, status: newStatus });
             }
-            // Background refresh to get accurate counts
             fetchComplaints();
         }
     };
 
-    // Since we are fetching filtered data from server now, client filtering is redundant 
-    // BUT if the API returns paginated data (defaults to 10), we only see the first page.
-    // For this simple implementation, let's assuming pagination is handled or we rely on the API returning relevant results.
-    // However, the previous code had `filteredComplaints`. I will just use `complaints` as `filteredComplaints` since API filters it.
-    const filteredComplaints = complaints;
 
 
     return (
@@ -169,10 +179,21 @@ export default function Complaints() {
             </div>
 
             {/* Complaints Table */}
-            <ComplaintsTable
-                complaints={filteredComplaints}
-                onView={setViewingComplaint}
-            />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <ComplaintsTable
+                    complaints={complaints}
+                    onView={setViewingComplaint}
+                />
+
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={totalItems}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={setItemsPerPage}
+                    itemName="complaints"
+                />
+            </div>
 
             {/* Modals */}
             {showModal && (

@@ -2,9 +2,11 @@ import { Complaint, ComplaintFormData } from "@/types/complaint.types";
 import { API_BASE_URL, getHeaders } from "./api.config";
 
 export const complaintService = {
-    getComplaints: async (search?: string, status?: string): Promise<{ data: Complaint[], meta: any }> => {
+    getComplaints: async (search?: string, status?: string, page: number = 1, perPage: number = 10): Promise<{ data: Complaint[], meta: any }> => {
         try {
             const params = new URLSearchParams();
+            params.append('page', page.toString());
+            params.append('per_page', perPage.toString());
             if (search) params.append('search', search);
             if (status && status !== 'all') params.append('status', status);
 
