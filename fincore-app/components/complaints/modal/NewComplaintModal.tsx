@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ComplaintFormData } from '@/types/complaint.types';
 import { branchService } from '@/services/branch.service';
 import { staffService } from '@/services/staff.service';
+import { authService } from '@/services/auth.service';
 import { toast } from 'react-toastify';
 
 interface NewComplaintModalProps {
@@ -35,12 +36,12 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({ onClose, o
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [fetchedBranches, fetchedStaff] = await Promise.all([
+                const [fetchedBranches, fetchedUsers] = await Promise.all([
                     branchService.getBranchesAll(),
-                    staffService.getStaffDropdownList()
+                    staffService.getUsersList() // Use new lightweight dropdown endpoint
                 ]);
                 setBranches(fetchedBranches);
-                setStaffList(fetchedStaff);
+                setStaffList(fetchedUsers);
             } catch (error) {
                 console.error("Failed to load dropdown data", error);
             }
@@ -130,16 +131,26 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({ onClose, o
                         <div>
                             <label className="block text-sm text-gray-700 mb-1">Assign To</label>
                             <select
-                                value={formData.assignedTo}
-                                onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                                value={formData.assigneeId || ''}
+                                onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedUser = staffList.find(u => u.id == selectedId);
+                                    setFormData({
+                                        ...formData,
+                                        assigneeId: selectedId,
+                                        assignedTo: selectedUser ? selectedUser.name : ''
+                                    });
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="" disabled>Select Assignee</option>
-                                {staffList.map((staff) => (
-                                    <option key={staff.staff_id} value={staff.full_name}>
-                                        {staff.full_name}
-                                    </option>
-                                ))}
+                                {staffList
+                                    .filter(user => user.id !== authService.getCurrentUser()?.id) // Exclude self
+                                    .map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.name}
+                                        </option>
+                                    ))}
                             </select>
                         </div>
                         <div className="sm:col-span-2">

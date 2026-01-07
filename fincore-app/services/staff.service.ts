@@ -68,6 +68,25 @@ export const staffService = {
         }
     },
 
+    getUsersList: async (): Promise<any[]> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/list`, { headers: getHeaders() });
+            if (!response.ok) return [];
+
+            const json = await response.json();
+            const data = json.data || [];
+
+            return data.map((u: any) => ({
+                id: u.id,
+                name: u.full_name || u.name || u.user_name,
+                role: u.role
+            }));
+        } catch (error) {
+            console.error("Error fetching users list", error);
+            return [];
+        }
+    },
+
     getWitnessCandidates: async (): Promise<Staff[]> => {
         try {
             // Try fetching by role to avoid permission issues with full list
