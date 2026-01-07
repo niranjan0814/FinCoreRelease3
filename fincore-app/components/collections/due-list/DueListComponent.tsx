@@ -6,6 +6,9 @@ import { ExtendDueDateModal } from './ExtendDueDateModal';
 import { dueListService } from '@/services/dueList.service';
 import { centerService } from '@/services/center.service';
 import { branchService } from '@/services/branch.service';
+import { toast } from 'react-toastify';
+import { CalendarOff } from 'lucide-react';
+import { BulkSkipModal } from './BulkSkipModal';
 
 interface ExtendedCenter extends Center {
     branch_id: string; // Add branch_id for filtering
@@ -40,6 +43,7 @@ export function DueList() {
 
     // Extension Modal State
     const [extensionPayment, setExtensionPayment] = useState<DuePayment | null>(null);
+    const [showBulkSkipModal, setShowBulkSkipModal] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // Load branches and centers on mount
@@ -152,6 +156,16 @@ export function DueList() {
         setRefreshTrigger(prev => prev + 1);
     };
 
+    const handleBulkSkipConfirm = async (centerId: string, dates: string[], reason: string) => {
+        try {
+            const result = await dueListService.bulkSkip(centerId, dates, reason);
+            toast.success(result.message);
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to skip payments.');
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -180,6 +194,16 @@ export function DueList() {
                 isLoading={isLoading}
                 showAllDates={showAllDates}
                 onShowAllDatesChange={setShowAllDates}
+                extraActions={
+                    <button
+                        onClick={() => setShowBulkSkipModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-lg hover:bg-red-100 transition-colors shadow-sm whitespace-nowrap"
+                        title="Bulk Skip Due Dates"
+                    >
+                        <CalendarOff size={18} />
+                        <span className="font-medium text-sm">Bulk Skip</span>
+                    </button>
+                }
             />
 
             {/* Due Payments Table */}
@@ -197,6 +221,13 @@ export function DueList() {
                 onSuccess={handleExtensionSuccess}
                 payment={extensionPayment}
                 originalDate={extensionPayment?.dueDate || selectedDate}
+            />
+
+            <BulkSkipModal
+                isOpen={showBulkSkipModal}
+                onClose={() => setShowBulkSkipModal(false)}
+                onConfirm={handleBulkSkipConfirm}
+                centers={allCenters}
             />
         </div>
     );

@@ -27,6 +27,7 @@ interface DueListFiltersProps {
     isLoading?: boolean;
     showAllDates?: boolean;
     onShowAllDatesChange?: (show: boolean) => void;
+    extraActions?: React.ReactNode;
 }
 
 export function DueListFilters({
@@ -43,6 +44,7 @@ export function DueListFilters({
     isLoading,
     showAllDates,
     onShowAllDatesChange,
+    extraActions,
 }: DueListFiltersProps) {
     return (
         <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
@@ -126,6 +128,8 @@ export function DueListFilters({
                         ))}
                     </select>
                 </div>
+
+                {extraActions}
             </div>
         </div>
     );

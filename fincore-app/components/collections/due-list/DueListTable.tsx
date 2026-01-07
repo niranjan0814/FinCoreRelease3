@@ -10,7 +10,7 @@ export interface DuePayment {
     dueAmount: number;
     center: string;
     centerId: string;
-    dueDate: string;
+    dueDate: string | null;
     status: 'Pending' | 'Paid' | 'Overdue' | 'Partial';
 }
 
@@ -140,7 +140,9 @@ export function DueListTable({ payments, selectedDate, isLoading, onPaymentClick
 
                                 {/* Due Date */}
                                 <div className="col-span-6 md:col-span-2">
-                                    <p className="text-sm text-gray-700">{payment.dueDate}</p>
+                                    <p className="text-sm text-gray-700">
+                                        {payment.dueDate || <span className="text-gray-400 italic">Skipped</span>}
+                                    </p>
                                 </div>
 
                                 {/* Status */}
@@ -150,16 +152,18 @@ export function DueListTable({ payments, selectedDate, isLoading, onPaymentClick
 
                                 {/* Actions */}
                                 <div className="col-span-6 md:col-span-1 flex justify-end">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onExtendClick?.(payment);
-                                        }}
-                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
-                                        title="Extend Due Date"
-                                    >
-                                        <CalendarClock className="w-4 h-4" />
-                                    </button>
+                                    {payment.dueDate && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onExtendClick?.(payment);
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                                            title="Extend Due Date"
+                                        >
+                                            <CalendarClock className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -211,13 +211,32 @@ class LoanDueDateService
      * @param Carbon $date The date to check
      * @return bool
      */
+    /**
+     * Check if a loan is due on a specific date.
+     * Respects due date extensions and skips.
+     * 
+     * @param Loan $loan The loan to check
+     * @param Carbon $date The date to check
+     * @return bool
+     */
     public function isDueOnDate(Loan $loan, Carbon $date): bool
     {
         $dateStr = $date->format('Y-m-d');
 
-        // Check if there's an extension that moved something AWAY from this date
+        // Check for SKIPPED due date
+        $isSkipped = $loan->extensions()
+            ->whereDate('original_due_date', $dateStr)
+            ->where('action_type', 'skip')
+            ->exists();
+
+        if ($isSkipped) {
+            return false;
+        }
+
+        // Check if there's an extension that moved something AWAY from this date (Legacy 'move' logic)
         $movedAway = $loan->extensions()
             ->whereDate('original_due_date', $dateStr)
+            ->where('action_type', '!=', 'skip') // Only check moves, not skips
             ->exists();
 
         // Check if there's an extension that moved something TO this date
@@ -273,7 +292,7 @@ class LoanDueDateService
                     }
                     // Count cycles from first due date to check if this is a valid bi-weekly date
                     if ($firstDueDate) {
-                        $cycleCount = $this->countDueCyclesBetween($firstDueDate, $date);
+                        $cycleCount = $this->countDueCyclesBetween($loan, $firstDueDate, $date);
                         return $cycleCount % 2 === 0;
                     }
                     return $dayOfMonth === $dueDay;
@@ -309,14 +328,11 @@ class LoanDueDateService
             return $this->getLegacyDueDatesForMonth($loan, $year, $month);
         }
 
-        $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
-        $endOfMonth = $startOfMonth->copy()->endOfMonth();
-
         switch ($termType) {
             case 'Monthly':
                 // Only one due date per month
                 $date = Carbon::create($year, $month, $dueDay);
-                if ($this->isAfterFirstDue($date, $firstDueDate)) {
+                if ($this->isAfterFirstDue($date, $firstDueDate) && !$this->isSkipped($loan, $date)) {
                     $dueDates[] = $date;
                 }
                 break;
@@ -325,10 +341,10 @@ class LoanDueDateService
                 // Every other due day
                 foreach (self::DUE_DAYS as $day) {
                     $date = Carbon::create($year, $month, $day);
-                    if ($this->isAfterFirstDue($date, $firstDueDate)) {
+                    if ($this->isAfterFirstDue($date, $firstDueDate) && !$this->isSkipped($loan, $date)) {
                         // Check if this is a valid bi-weekly cycle
                         if ($firstDueDate) {
-                            $cycleCount = $this->countDueCyclesBetween($firstDueDate, $date);
+                            $cycleCount = $this->countDueCyclesBetween($loan, $firstDueDate, $date);
                             if ($cycleCount % 2 === 0) {
                                 $dueDates[] = $date;
                             }
@@ -342,7 +358,7 @@ class LoanDueDateService
                 // All 4 due days
                 foreach (self::DUE_DAYS as $day) {
                     $date = Carbon::create($year, $month, $day);
-                    if ($this->isAfterFirstDue($date, $firstDueDate)) {
+                    if ($this->isAfterFirstDue($date, $firstDueDate) && !$this->isSkipped($loan, $date)) {
                         $dueDates[] = $date;
                     }
                 }
@@ -353,17 +369,76 @@ class LoanDueDateService
     }
 
     /**
-     * Count the number of due cycles between two dates.
-     * Each due day (1, 8, 15, 22) counts as one cycle.
+     * Check if a date is marked as skipped.
+     */
+    private function isSkipped(Loan $loan, Carbon $date): bool
+    {
+        return $loan->extensions()
+            ->whereDate('original_due_date', $date->format('Y-m-d'))
+            ->where('action_type', 'skip')
+            ->exists();
+    }
+
+    /**
+     * Count the number of VALID due cycles between two dates.
+     * Skips excluded checks.
      * 
+     * @param Loan $loan
      * @param Carbon $start Start date
      * @param Carbon $end End date
      * @return int Number of cycles
      */
-    private function countDueCyclesBetween(Carbon $start, Carbon $end): int
+    private function countDueCyclesBetween(Loan $loan, Carbon $start, Carbon $end): int
     {
-        $dueDates = $this->getDueDatesFromTo($start, $end);
-        return count($dueDates) - 1; // Subtract 1 because we count intervals, not dates
+        $rawDueDates = $this->getDueDatesFromTo($start, $end);
+        
+        // Filter out skipped dates from the cycle count!
+        // This effectively "shifts" the cycle count.
+        $validCycles = 0;
+        
+        // Optimize: we just need to know which ones are skipped
+        // Ideally we fetch all skips in range once, but for now simple query loop is safer for correctness
+        
+        foreach ($rawDueDates as $date) {
+            // Don't count the check date itself in the cycle count if we are checking parity
+            // We need 0-based index for the start date. 
+            // Actually, if start=Jan1, end=Jan15. Dates: Jan1, Jan8, Jan15.
+            // If Jan8 is skipped. Valid dates: Jan1, Jan15.
+            // Jan1 is index 0 (Even). Jan15 is index 1 (Odd).
+            // So Jan15 becomes NOT due for Bi-Weekly.
+            
+            // Wait, calculateNaturalCycles logic:
+            // The logic requires counting how many valid intervals passed.
+            
+            if ($date->gt($end)) break; // Should not happen with getDueDatesFromTo logic
+            if ($date->lt($start)) continue; // Should not happen
+            
+            // If this date is skipped, do NOT increment cycle count
+            if (!$this->isSkipped($loan, $date)) {
+                $validCycles++;
+            }
+        }
+        
+        // We want the index of 'end' date in the valid sequence.
+        // If Jan1 (Valid), Jan8 (Skipped), Jan15 (Valid).
+        // Calling countDueCyclesBetween(Jan1, Jan15).
+        // Loop: Jan1 (Valid), Jan8 (Skip), Jan15 (Valid).
+        // validCycles = 2.
+        // Return 2 - 1 = 1.
+        // So Jan15 has index 1 -> Odd -> Not due.
+        // Correct?
+        // Let's trace Bi-Weekly: Due on 0, 2, 4...
+        // Jan1 (Index 0) -> Due.
+        // Jan8 (Skip).
+        // Jan15 (Index 1) -> Odd -> Not Due.
+        // Jan22 (Valid). Index 2 -> Even -> Due.
+        
+        // This perfectly matches "Shift By One" logic!
+        // Before skip: Jan1 (0), Jan8(1), Jan15(2). Due: Jan1, Jan15.
+        // After skip Jan8: Jan1(0), Jan15(1), Jan22(2). Due: Jan1, Jan22.
+        // Jan15 was Due (2), became Not Due (1). SHIFTED!
+        
+        return max(0, $validCycles - 1);
     }
 
     /**

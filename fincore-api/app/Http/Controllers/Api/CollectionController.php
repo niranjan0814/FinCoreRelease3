@@ -136,7 +136,7 @@ class CollectionController extends Controller
                 
                 // Was it MOVED TO today?
                 $movedToHere = $extensions->contains(function($ext) use ($selectedDateStr) {
-                    return $ext->new_due_date->format('Y-m-d') === $selectedDateStr;
+                    return $ext->new_due_date && $ext->new_due_date->format('Y-m-d') === $selectedDateStr;
                 });
 
                 // Was it MOVED AWAY from today?
@@ -144,7 +144,19 @@ class CollectionController extends Controller
                     return $ext->original_due_date->format('Y-m-d') === $selectedDateStr;
                 });
 
-                $isPotentiallyDue = $isNaturallyDue || $movedToHere;
+                // Was it IMPLICITLY DUE from a previous skip? (Legacy Shift)
+                $implicitlyDueFromSkip = $extensions->contains(function($ext) use ($selectedDate, $termType) {
+                    if ($ext->action_type !== 'skip') return false;
+                    
+                    $projected = $ext->original_due_date->copy();
+                    if ($termType === 'Monthly') $projected->addMonth();
+                    elseif ($termType === 'Bi-Weekly') $projected->addWeeks(2);
+                    else $projected->addWeek();
+                    
+                    return $projected->format('Y-m-d') === $selectedDate->format('Y-m-d');
+                });
+
+                $isPotentiallyDue = $isNaturallyDue || $movedToHere || $implicitlyDueFromSkip;
 
                 if ($isPotentiallyDue && !$movedAway) {
                     $shouldInclude = true;
@@ -362,24 +374,37 @@ class CollectionController extends Controller
         try {
             $request->validate([
                 'original_due_date' => 'required|date',
-                'new_due_date' => 'required|date|after:original_due_date',
+                'action_type' => 'nullable|in:move,skip',
+                'new_due_date' => [
+                    'nullable',
+                    'date',
+                    'after:original_due_date',
+                    function ($attribute, $value, $fail) use ($request) {
+                        $type = $request->input('action_type', 'move');
+                        if ($type === 'move' && empty($value)) {
+                            $fail('The new due date is required when moving a due date.');
+                        }
+                    },
+                ],
                 'reason' => 'required|string|max:500',
             ]);
 
             $loan = Loan::findOrFail($id);
+            $actionType = $request->input('action_type', 'move');
 
             // Create extension record
             $extension = LoanDueDateExtension::create([
                 'loan_id' => $loan->id,
+                'action_type' => $actionType,
                 'original_due_date' => $request->original_due_date,
-                'new_due_date' => $request->new_due_date,
+                'new_due_date' => $request->new_due_date, // Can be null for 'skip'
                 'reason' => $request->reason,
                 'created_by' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Due date extended successfully',
+                'message' => $actionType === 'skip' ? 'Due date skipped successfully' : 'Due date extended successfully',
                 'data' => $extension
             ]);
 
@@ -644,15 +669,38 @@ class CollectionController extends Controller
                         });
                         
                         if ($ext) {
-                            $currentDate = $ext->new_due_date;
-                            $loops++;
+                            if ($ext->action_type === 'skip') {
+                                // If skipped, find the next due date
+                                if ($loan->due_day) {
+                                    // FIXED SYSTEM: Snap to grid (1, 8, 15, 22)
+                                    $service = new \App\Services\LoanDueDateService();
+                                    $searchFrom = $ext->original_due_date->copy()->addDay();
+                                    $currentDate = $service->getNextDueDate($loan, $searchFrom);
+                                } else {
+                                    // LEGACY SYSTEM: Relative shift (Preserve "Moved" status)
+                                    $termType = $loan->product->term_type ?? 'Weekly';
+                                    $currentDate = $ext->original_due_date->copy();
+                                    
+                                    if ($termType === 'Monthly') {
+                                        $currentDate->addMonth();
+                                    } elseif ($termType === 'Bi-Weekly') {
+                                        $currentDate->addWeeks(2);
+                                    } else {
+                                        $currentDate->addWeek();
+                                    }
+                                }
+                                $loops++;
+                            } else {
+                                $currentDate = $ext->new_due_date;
+                                $loops++;
+                            }
                         } else {
                             $chainFound = false;
                         }
                     }
                     
-                    $itemDueDate = $currentDate->format('Y-m-d');
-                    $isDue = true; 
+                    $itemDueDate = $currentDate ? $currentDate->format('Y-m-d') : null;
+                    $isDue = $itemDueDate ? true : false; 
 
                 } else {
                     // Strictly check if due on selected date
@@ -685,7 +733,7 @@ class CollectionController extends Controller
 
                     // 2. Was it MOVED TO today?
                     $movedToHere = $extensions->contains(function($ext) use ($selectedDateStr) {
-                        return $ext->new_due_date->format('Y-m-d') === $selectedDateStr;
+                        return $ext->new_due_date && $ext->new_due_date->format('Y-m-d') === $selectedDateStr;
                     });
                     
                     // 3. Was it MOVED AWAY from today?
@@ -693,8 +741,20 @@ class CollectionController extends Controller
                         return $ext->original_due_date->format('Y-m-d') === $selectedDateStr;
                     });
 
-                    // Logic: Must be (Naturally Due OR Moved To Here) AND (Not Moved Away)
-                    $isPotentiallyDue = $isNaturallyDue || $movedToHere;
+                    // 4. Was it IMPLICITLY DUE from a previous skip?
+                    $implicitlyDueFromSkip = $extensions->contains(function($ext) use ($selectedDate, $termType) {
+                        if ($ext->action_type !== 'skip') return false;
+                        
+                        $projected = $ext->original_due_date->copy();
+                        if ($termType === 'Monthly') $projected->addMonth();
+                        elseif ($termType === 'Bi-Weekly') $projected->addWeeks(2);
+                        else $projected->addWeek();
+                        
+                        return $projected->format('Y-m-d') === $selectedDate->format('Y-m-d');
+                    });
+
+                    // Logic: Must be (Naturally Due OR Moved To Here OR Implicitly Due) AND (Not Moved Away)
+                    $isPotentiallyDue = $isNaturallyDue || $movedToHere || $implicitlyDueFromSkip;
                     
                     if ($isPotentiallyDue && !$movedAway) {
                         $isDue = true;
@@ -953,6 +1013,226 @@ class CollectionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to export due list: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk skip due dates for a center/term type
+     */
+    /**
+     * Get pending due dates with counts for a center
+     */
+    public function getPendingDueDates(Request $request)
+    {
+        $request->validate([
+            'center_id' => 'required|exists:centers,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $centerId = $request->center_id;
+        $startDate = \Carbon\Carbon::parse($request->start_date)->startOfDay();
+        $endDate = \Carbon\Carbon::parse($request->end_date)->endOfDay();
+        
+        // 1. Get all active loans for the center
+        $loans = Loan::where('status', Loan::STATUS_ACTIVE)
+            ->where('CSU_id', $centerId)
+            ->with(['product', 'extensions'])
+            ->get();
+
+        $stats = [];
+        $current = $startDate->copy();
+
+        // 2. Iterate through each day in the range
+        while ($current->lte($endDate)) {
+            $dateStr = $current->format('Y-m-d');
+            $count = 0;
+
+            foreach ($loans as $loan) {
+                // Reuse Robust Logic (Condensed)
+                $termType = $loan->product->term_type ?? 'Weekly';
+                $extensions = $loan->extensions;
+
+                // Check Naturally Due
+                $isNaturallyDue = false;
+                if ($loan->due_day) {
+                    $dueDateService = new LoanDueDateService();
+                    $isNaturallyDue = $dueDateService->isNaturallyDueOnDate($loan, $current);
+                } else {
+                    $agreementDate = $loan->agreement_date 
+                        ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
+                        : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
+                    if ($current->gte($agreementDate)) {
+                        if ($termType === 'Monthly') $isNaturallyDue = $agreementDate->day === $current->day;
+                        elseif ($termType === 'Bi-Weekly') $isNaturallyDue = $agreementDate->diffInDays($current) % 14 === 0;
+                        else $isNaturallyDue = $agreementDate->dayOfWeek === $current->dayOfWeek;
+                    }
+                }
+
+                // Check Extensions
+                $movedToHere = $extensions->contains(fn($ext) => $ext->new_due_date && $ext->new_due_date->format('Y-m-d') === $dateStr);
+                $movedAway = $extensions->contains(fn($ext) => $ext->original_due_date->format('Y-m-d') === $dateStr);
+                
+                $implicitlyDue = $extensions->contains(function($ext) use ($current, $termType) {
+                    if ($ext->action_type !== 'skip') return false;
+                    $projected = $ext->original_due_date->copy();
+                    if ($termType === 'Monthly') $projected->addMonth();
+                    elseif ($termType === 'Bi-Weekly') $projected->addWeeks(2);
+                    else $projected->addWeek();
+                    return $projected->format('Y-m-d') === $current->format('Y-m-d');
+                });
+
+                if (($isNaturallyDue || $movedToHere || $implicitlyDue) && !$movedAway) {
+                    $count++;
+                }
+            }
+
+            if ($count > 0) {
+                $stats[] = [
+                    'date' => $dateStr,
+                    'count' => $count,
+                    'day_name' => $current->format('l') // e.g. Tuesday
+                ];
+            }
+
+            $current->addDay();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
+    }
+
+    /**
+     * Bulk skip due dates for a center (Multiple Dates support)
+     */
+    public function bulkSkip(Request $request)
+    {
+        Log::info("Bulk Skip Request", $request->all());
+
+        $request->validate([
+            'center_id' => 'required|exists:centers,id',
+            'dates' => 'required|array',
+            'dates.*' => 'date',
+            'reason' => 'required|string'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $skippedCount = 0;
+            $centerId = $request->center_id;
+            
+            // Get Loans
+            $loans = Loan::where('status', Loan::STATUS_ACTIVE)
+                ->where('CSU_id', $centerId)
+                ->with(['product', 'extensions'])
+                ->get();
+            
+            Log::info("Found " . $loans->count() . " active loans.");
+
+            foreach ($request->dates as $dateStr) {
+                Log::info("Processing date: $dateStr");
+                $date = \Carbon\Carbon::parse($dateStr)->startOfDay();
+                
+                foreach ($loans as $loan) {
+                    // Same Logic
+                    // Reuse Robust "Is Due" Logic
+                    $termType = $loan->product->term_type ?? 'Weekly';
+                    $extensions = $loan->extensions;
+
+                    // 1. Is it NATURALLY due?
+                    $isNaturallyDue = false;
+                    if ($loan->due_day) {
+                        $dueDateService = new LoanDueDateService();
+                        $isNaturallyDue = $dueDateService->isNaturallyDueOnDate($loan, $date);
+                    } else {
+                        // Legacy Logic
+                        $agreementDate = $loan->agreement_date 
+                            ? \Carbon\Carbon::parse($loan->agreement_date)->startOfDay() 
+                            : \Carbon\Carbon::parse($loan->created_at)->startOfDay();
+                            
+                        if ($date->gte($agreementDate)) {
+                            if ($termType === 'Monthly') {
+                                $isNaturallyDue = $agreementDate->day === $date->day;
+                            } elseif ($termType === 'Bi-Weekly') {
+                                $daysDiff = $agreementDate->diffInDays($date);
+                                $isNaturallyDue = $daysDiff % 14 === 0;
+                            } else {
+                                $isNaturallyDue = $agreementDate->dayOfWeek === $date->dayOfWeek;
+                            }
+                        }
+                    }
+
+                    // 2. Was it MOVED TO today?
+                    $movedToHere = $extensions->contains(function($ext) use ($dateStr) {
+                        return $ext->new_due_date && $ext->new_due_date->format('Y-m-d') === $dateStr;
+                    });
+
+                    // 3. Was it IMPLICITLY DUE?
+                    $implicitlyDueFromSkip = $extensions->contains(function($ext) use ($date, $termType) {
+                        if ($ext->action_type !== 'skip') return false;
+                            
+                        $projected = $ext->original_due_date->copy();
+                        if ($termType === 'Monthly') $projected->addMonth();
+                        elseif ($termType === 'Bi-Weekly') $projected->addWeeks(2);
+                        else $projected->addWeek();
+                            
+                        return $projected->format('Y-m-d') === $date->format('Y-m-d');
+                    });
+                    
+                    // 4. Was it MOVED AWAY?
+                    $movedAway = $extensions->contains(function($ext) use ($dateStr) {
+                        return $ext->original_due_date->format('Y-m-d') === $dateStr;
+                    });
+
+                    $isDue = ($isNaturallyDue || $movedToHere || $implicitlyDueFromSkip) && !$movedAway;
+
+                    if ($isDue) {
+                        Log::info("Loan {$loan->id} detected IS DUE. Creating Extension...");
+                        // Check if we already skipped this specific date for this loan in this transaction request
+                        // (To prevent double skipping if multiple dates overlap logic - theoretically shouldn't but good safety)
+                        // Actually, we should just check if an extension already exists for this date/loan to prevent duplicates if user retries.
+                        $alreadySkipped = LoanDueDateExtension::where('loan_id', $loan->id)
+                            ->where('original_due_date', $date->format('Y-m-d'))
+                            ->exists();
+                        
+                        if ($alreadySkipped) {
+                            Log::info("Loan {$loan->id} already skipped. Ignoring.");
+                        }
+
+                        if (!$alreadySkipped) {
+                            LoanDueDateExtension::create([
+                                'loan_id' => $loan->id,
+                                'original_due_date' => $date->format('Y-m-d'),
+                                'new_due_date' => null, // Skip
+                                'reason' => $request->reason,
+                                'created_by' => auth()->id(),
+                                'action_type' => 'skip'
+                            ]);
+                            $skippedCount++;
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully skipped {$skippedCount} scheduled payments.",
+                'count' => $skippedCount
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Bulk Skip Error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process bulk skip: ' . $e->getMessage(),
+                'error' => $e->getMessage()
             ], 500);
         }
     }

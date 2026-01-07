@@ -13,6 +13,7 @@ class LoanDueDateExtension extends Model
 
     protected $fillable = [
         'loan_id',
+        'action_type',
         'original_due_date',
         'new_due_date',
         'reason',

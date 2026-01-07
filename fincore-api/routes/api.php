@@ -300,6 +300,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/collections/loans/{id}/extend-due-date', [\App\Http\Controllers\Api\CollectionController::class, 'extendDueDate'])->middleware('permission:collections.view');
         Route::get('/collections/summary', [\App\Http\Controllers\Api\CollectionSummaryController::class, 'getSummary'])->middleware('permission:collections.view');
         Route::get('/collections/summary/export', [\App\Http\Controllers\Api\CollectionSummaryController::class, 'export'])->middleware('permission:collections.view');
+        Route::get('/collections/pending-due-dates', [\App\Http\Controllers\Api\CollectionController::class, 'getPendingDueDates'])->middleware('permission:collections.view');
+        Route::post('/collections/bulk-skip', [\App\Http\Controllers\Api\CollectionController::class, 'bulkSkip'])->middleware('permission:collections.view');
 
         // Due List (for scheduled payments view)
         Route::prefix('due-list')->group(function () {

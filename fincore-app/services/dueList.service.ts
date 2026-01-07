@@ -100,21 +100,79 @@ export const dueListService = {
     /**
      * Extend due date for a loan
      */
-    extendDueDate: async (loanId: string, originalDate: string, newDate: string, reason: string): Promise<void> => {
+    extendDueDate: async (
+        loanId: string,
+        originalDate: string,
+        newDate: string | null,
+        reason: string,
+        actionType: 'move' | 'skip' = 'move'
+    ): Promise<void> => {
+        const payload: any = {
+            original_due_date: originalDate,
+            reason,
+            action_type: actionType
+        };
+
+        if (actionType === 'move' && newDate) {
+            payload.new_due_date = newDate;
+        }
+
         const response = await fetch(`${API_BASE_URL}/collections/loans/${loanId}/extend-due-date`, {
             method: 'POST',
             headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to update due date');
+        }
+    },
+
+    /**
+     * Get pending due dates with counts for checklist
+     */
+    getPendingDueDates: async (centerId: string, startDate: string, endDate: string): Promise<{ date: string; count: number; day_name: string }[]> => {
+        const url = new URL(`${API_BASE_URL}/collections/pending-due-dates`);
+        url.searchParams.append('center_id', centerId);
+        url.searchParams.append('start_date', startDate);
+        url.searchParams.append('end_date', endDate);
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: getHeaders(),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to fetch pending due dates');
+        }
+
+        return result.data;
+    },
+
+    /**
+     * Bulk skip due dates for a center (Multiple Dates)
+     */
+    bulkSkip: async (centerId: string, dates: string[], reason: string): Promise<{ count: number; message: string }> => {
+        const response = await fetch(`${API_BASE_URL}/collections/bulk-skip`, {
+            method: 'POST',
+            headers: getHeaders(),
             body: JSON.stringify({
-                original_due_date: originalDate,
-                new_due_date: newDate,
-                reason,
+                center_id: centerId,
+                dates,
+                reason
             }),
         });
 
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.message || 'Failed to extend due date');
+            throw new Error(result.message || 'Failed to bulk skip due dates');
         }
+
+        return result;
     },
 };

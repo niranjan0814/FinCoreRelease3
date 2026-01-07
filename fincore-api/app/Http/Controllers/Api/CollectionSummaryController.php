@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\LoanDueDateService;
 
 class CollectionSummaryController extends Controller
 {
@@ -129,13 +130,18 @@ class CollectionSummaryController extends Controller
         while ($current->lte($endDate)) {
             $isNaturallyDue = false;
             
-            if ($termType === 'Monthly') {
-                $isNaturallyDue = $agreementDate->day === $current->day;
-            } elseif ($termType === 'Bi-Weekly') {
-                $daysDiff = $agreementDate->diffInDays($current);
-                $isNaturallyDue = ($daysDiff % 14 === 0) && $current->gte($agreementDate);
-            } else { // Weekly
-                $isNaturallyDue = ($agreementDate->dayOfWeek === $current->dayOfWeek) && $current->gte($agreementDate);
+            if ($loan->due_day) {
+                $dueDateService = new LoanDueDateService();
+                $isNaturallyDue = $dueDateService->isNaturallyDueOnDate($loan, $current);
+            } else {
+                if ($termType === 'Monthly') {
+                    $isNaturallyDue = $agreementDate->day === $current->day;
+                } elseif ($termType === 'Bi-Weekly') {
+                    $daysDiff = $agreementDate->diffInDays($current);
+                    $isNaturallyDue = ($daysDiff % 14 === 0) && $current->gte($agreementDate);
+                } else { // Weekly
+                    $isNaturallyDue = ($agreementDate->dayOfWeek === $current->dayOfWeek) && $current->gte($agreementDate);
+                }
             }
 
             // Check extensions
@@ -143,14 +149,14 @@ class CollectionSummaryController extends Controller
             
             // Was it MOVED TO today?
             $movedToHere = $extensions->contains(function($ext) use ($currentDateStr) {
-                return $ext->new_due_date->format('Y-m-d') === $currentDateStr;
+                return $ext->new_due_date && $ext->new_due_date->format('Y-m-d') === $currentDateStr;
             });
             
             // Was it MOVED AWAY from today?
             $movedAway = $extensions->contains(function($ext) use ($currentDateStr) {
                 return $ext->original_due_date->format('Y-m-d') === $currentDateStr;
             });
-            
+
             // Final decision
             $isDue = ($isNaturallyDue || $movedToHere) && !$movedAway;
             

@@ -248,6 +248,7 @@ export function CollectionScreen() {
                             selectedCenter={getCenterName()}
                             onCollectPayment={handleCollectPayment}
                             onShowHistory={handleShowHistory}
+                            selectedDate={selectedDate}
                         />
                     )}
                 </>

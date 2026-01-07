@@ -8,9 +8,11 @@ interface ScheduledPaymentsTableProps {
     selectedCenter: string;
     onCollectPayment: (payment: ScheduledPayment) => void;
     onShowHistory: (payment: ScheduledPayment) => void;
+    selectedDate: string;
 }
 
-export function ScheduledPaymentsTable({ payments, selectedCenter, onCollectPayment, onShowHistory }: ScheduledPaymentsTableProps) {
+export function ScheduledPaymentsTable({ payments, selectedCenter, onCollectPayment, onShowHistory, selectedDate }: ScheduledPaymentsTableProps) {
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
     return (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
             <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
@@ -109,7 +111,12 @@ export function ScheduledPaymentsTable({ payments, selectedCenter, onCollectPaym
                                     </button>
                                     <button
                                         onClick={() => onCollectPayment(payment)}
-                                        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow text-xs font-bold uppercase tracking-wider"
+                                        disabled={!isToday}
+                                        title={!isToday ? "Can only collect payments for today" : "Collect Payment"}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isToday
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow'
+                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            }`}
                                     >
                                         Collect
                                     </button>

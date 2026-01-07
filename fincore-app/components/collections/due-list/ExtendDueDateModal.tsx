@@ -22,6 +22,7 @@ export function ExtendDueDateModal({
 }: ExtendDueDateModalProps) {
     const [newDate, setNewDate] = useState('');
     const [reason, setReason] = useState('');
+    const [actionType, setActionType] = useState<'move' | 'skip'>('move');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,14 +32,17 @@ export function ExtendDueDateModal({
         e.preventDefault();
         setError(null);
 
-        if (!newDate) {
-            setError('Please select a new due date');
-            return;
-        }
+        // Validation based on action type
+        if (actionType === 'move') {
+            if (!newDate) {
+                setError('Please select a new due date');
+                return;
+            }
 
-        if (newDate <= originalDate) {
-            setError('New due date must be after the original due date');
-            return;
+            if (newDate <= originalDate) {
+                setError('New due date must be after the original due date');
+                return;
+            }
         }
 
         if (!reason.trim()) {
@@ -48,7 +52,13 @@ export function ExtendDueDateModal({
 
         try {
             setIsLoading(true);
-            await dueListService.extendDueDate(payment.id, originalDate, newDate, reason);
+            await dueListService.extendDueDate(
+                payment.id,
+                originalDate,
+                actionType === 'move' ? newDate : null,
+                reason,
+                actionType
+            );
             onSuccess();
             onClose();
         } catch (err: any) {
@@ -79,38 +89,76 @@ export function ExtendDueDateModal({
 
                 {/* Body */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Action Type Toggle */}
+                    <div className="flex bg-gray-100 p-1 rounded-lg mb-2">
+                        <button
+                            type="button"
+                            onClick={() => { setActionType('move'); setError(null); }}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${actionType === 'move' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Move Date
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setActionType('skip'); setError(null); }}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${actionType === 'skip' ? 'bg-white text-rose-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Skip Due
+                        </button>
+                    </div>
+
                     {/* Info Alert */}
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div className={`border rounded-lg p-3 flex items-start gap-3 ${actionType === 'skip' ? 'bg-rose-50 border-rose-100' : 'bg-blue-50 border-blue-100'
+                        }`}>
+                        <Calendar className={`w-5 h-5 shrink-0 mt-0.5 ${actionType === 'skip' ? 'text-rose-600' : 'text-blue-600'
+                            }`} />
                         <div>
-                            <p className="text-sm font-medium text-blue-900">Current Due Date</p>
-                            <p className="text-sm text-blue-700">{new Date(originalDate).toLocaleDateString()}</p>
+                            <p className={`text-sm font-medium ${actionType === 'skip' ? 'text-rose-900' : 'text-blue-900'
+                                }`}>
+                                {actionType === 'skip' ? 'Skipping Due Date' : 'Current Due Date'}
+                            </p>
+                            <p className={`text-sm ${actionType === 'skip' ? 'text-rose-700' : 'text-blue-700'
+                                }`}>
+                                {actionType === 'skip'
+                                    ? `Payment for ${new Date(originalDate).toLocaleDateString()} will be waived.`
+                                    : new Date(originalDate).toLocaleDateString()
+                                }
+                            </p>
+                            {actionType === 'skip' && (
+                                <p className="text-xs text-rose-600 mt-1 font-medium">
+                                    No penalty will be applied. Loan term will extend by one cycle.
+                                </p>
+                            )}
                         </div>
                     </div>
 
-                    {/* New Date Input */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            New Due Date
-                        </label>
-                        <input
-                            type="date"
-                            value={newDate}
-                            min={new Date(originalDate).toISOString().split('T')[0]}
-                            onChange={(e) => setNewDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                        />
-                    </div>
+                    {/* New Date Input (Only for Move) */}
+                    {actionType === 'move' && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                New Due Date
+                            </label>
+                            <input
+                                type="date"
+                                value={newDate}
+                                min={new Date(originalDate).toISOString().split('T')[0]}
+                                onChange={(e) => setNewDate(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            />
+                        </div>
+                    )}
 
                     {/* Reason Input */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Reason for Extension
+                            Reason for {actionType === 'skip' ? 'Skipping' : 'Extension'}
                         </label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder="Please explain why the due date is being extended..."
+                            placeholder={`Please explain why the due date is being ${actionType === 'skip' ? 'skipped' : 'extended'}...`}
                             rows={3}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                         />
@@ -136,12 +184,13 @@ export function ExtendDueDateModal({
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="flex-1 px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${actionType === 'skip' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                         >
                             {isLoading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
-                                'Confirm Extension'
+                                actionType === 'skip' ? 'Confirm Skip' : 'Confirm Extension'
                             )}
                         </button>
                     </div>
