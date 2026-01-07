@@ -19,6 +19,8 @@ export interface User {
     staffId?: string; // Staff ID for staff members (e.g., ST0001)
     email: string;
     role: string;
+    roleId?: number | string | null;
+    roleName?: string;
     branch: string;
     branchId?: number | string | null;
     status: 'Active' | 'Inactive' | 'Blocked';

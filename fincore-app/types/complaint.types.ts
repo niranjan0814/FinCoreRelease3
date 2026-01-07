@@ -21,6 +21,7 @@ export interface ComplaintFormData {
     category: string;
     priority: 'High' | 'Medium' | 'Low';
     assignedTo: string;
+    assigneeId?: string;
     subject: string;
     description: string;
 }

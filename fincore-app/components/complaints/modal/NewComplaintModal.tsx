@@ -38,10 +38,13 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({ onClose, o
             try {
                 const [fetchedBranches, fetchedUsers] = await Promise.all([
                     branchService.getBranchesAll(),
-                    staffService.getUsersList() // Use new lightweight dropdown endpoint
+                    staffService.getStaffDropdownList()
                 ]);
                 setBranches(fetchedBranches);
-                setStaffList(fetchedUsers);
+                setStaffList(fetchedUsers.map(u => ({
+                    id: u.staff_id,
+                    name: u.full_name
+                })));
             } catch (error) {
                 console.error("Failed to load dropdown data", error);
             }
@@ -145,7 +148,6 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({ onClose, o
                             >
                                 <option value="" disabled>Select Assignee</option>
                                 {staffList
-                                    .filter(user => user.id !== authService.getCurrentUser()?.id) // Exclude self
                                     .map((user) => (
                                         <option key={user.id} value={user.id}>
                                             {user.name}

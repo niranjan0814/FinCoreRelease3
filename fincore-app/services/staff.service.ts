@@ -2,9 +2,15 @@ import { User, Permission, Role, Staff } from '../types/staff.types';
 import { API_BASE_URL, getHeaders } from './api.config';
 
 export const staffService = {
-    getUsers: async (type: 'admins' | 'staff' = 'admins'): Promise<User[]> => {
+    getUsers: async (type: 'admins' | 'staff' = 'admins', params?: any): Promise<User[]> => {
         try {
-            const endpoint = type === 'admins' ? `${API_BASE_URL}/admins` : `${API_BASE_URL}/users`;
+            let endpoint = type === 'admins' ? `${API_BASE_URL}/admins` : `${API_BASE_URL}/users`;
+
+            if (params) {
+                const query = new URLSearchParams(params).toString();
+                endpoint += `?${query}`;
+            }
+
             const response = await fetch(endpoint, { headers: getHeaders() });
 
             if (!response.ok) return [];
@@ -29,6 +35,8 @@ export const staffService = {
                 staffId: u.user_name && /^ST\d+/.test(u.user_name) ? u.user_name : undefined,
                 email: u.email,
                 role: (u.roles && u.roles.length > 0) ? (u.roles[0].display_name || u.roles[0].name) : (u.role || 'N/A'),
+                roleId: (u.roles && u.roles.length > 0) ? u.roles[0].id : (u.role_id || null),
+                roleName: (u.roles && u.roles.length > 0) ? u.roles[0].name : (u.role_name || null),
                 branch: u.branch?.name || (u.branch_id ? 'Branch ' + u.branch_id : '-'),
                 branchId: u.branch_id || null,
                 status: (u.is_active || u.status === 'Active' || u.status === 1) ? 'Active' : 'Inactive',

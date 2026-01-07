@@ -268,6 +268,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/{staff_id}', [StaffController::class, 'destroy'])->middleware('permission:staff.delete');
         });
 
+        // Payroll Management
+        Route::prefix('payroll')->group(function () {
+            Route::get('/stats', [\App\Http\Controllers\Api\PayrollController::class, 'getStats'])->middleware('permission:payroll.view');
+            Route::get('/history', [\App\Http\Controllers\Api\PayrollController::class, 'getHistory'])->middleware('permission:payroll.view');
+            Route::post('/process', [\App\Http\Controllers\Api\PayrollController::class, 'processPayment'])->middleware('permission:payroll.create');
+        });
+
         // Customer Management
         Route::prefix('customers')->group(function () {
             Route::get('/', [CustomerController::class, 'index'])->middleware('permission:customers.view');

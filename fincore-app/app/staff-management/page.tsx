@@ -13,6 +13,7 @@ import { User, Permission, StaffStats } from '../../types/staff.types';
 import { useRouter } from 'next/navigation';
 import { AttendanceView } from '../../components/staff/AttendanceView';
 import Complaints from '../../components/complaints/Complaints';
+import { SalaryManagement } from '../../components/staff/salary/SalaryManagement';
 
 
 export default function StaffManagementPage() {
@@ -248,9 +249,8 @@ export default function StaffManagementPage() {
 
                 {/* Salary Tab Content */}
                 {activeTab === 'salary' && (
-                    <div className="p-12 text-center text-gray-500">
-                        <h3 className="text-lg font-medium">Salary Management</h3>
-                        <p className="mt-2">This module is coming soon to manage staff salaries and payroll.</p>
+                    <div className="p-6">
+                        <SalaryManagement />
                     </div>
                 )}
 

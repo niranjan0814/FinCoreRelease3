@@ -36,6 +36,7 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'Group Management', 'slug' => 'group-management', 'icon' => 'users', 'color' => 'blue'],
                 ['name' => 'Investment Management', 'slug' => 'investment-management', 'icon' => 'users', 'color' => 'blue'],
                 ['name' => 'Customer Management', 'slug' => 'customer-management', 'icon' => 'users', 'color' => 'blue'],
+                ['name' => 'Payroll Management', 'slug' => 'payroll-management', 'icon' => 'money-check-alt', 'color' => 'green'],
             ];
 
             foreach ($groups as $group) {
@@ -131,6 +132,10 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'permissions.create', 'display_name' => 'Create Permissions', 'module' => 'permissions', 'permission_group_id' => 3],
                 ['name' => 'permissions.edit', 'display_name' => 'Edit Permissions', 'module' => 'permissions', 'permission_group_id' => 3],
                 ['name' => 'permissions.delete', 'display_name' => 'Delete Permissions', 'module' => 'permissions', 'permission_group_id' => 3],
+
+                // Payroll Management
+                ['name' => 'payroll.view', 'display_name' => 'View Payroll', 'module' => 'payroll', 'permission_group_id' => 14], // Assuming 14 is the next ID, or logic finds it. Wait, permission_group_id is hardcoded in this seeder?
+                ['name' => 'payroll.create', 'display_name' => 'Process Payroll', 'module' => 'payroll', 'permission_group_id' => 14],
             ];
 
             foreach ($permissions as $permission) {
@@ -249,6 +254,8 @@ class RolePermissionSeeder extends Seeder
                 'loans.import',
                 'loans.export',
                 'customers.approve_transfer',
+                'payroll.view',
+                'payroll.create',
             ])->get();
             if ($superAdminRole) {
                 $superAdminRole->syncPermissions($superAdminPermissions);
@@ -305,6 +312,8 @@ class RolePermissionSeeder extends Seeder
                 'loans.import',
                 'loans.export',
                 'customers.approve_transfer',
+                'payroll.view',
+                'payroll.create',
                 
             ])->get();
              if ($adminRole) {
@@ -320,6 +329,8 @@ class RolePermissionSeeder extends Seeder
                 'centers.view',
                 'centers.edit',
                 'customers.approve_transfer',
+                'payroll.view',
+                'payroll.create',
             ])->get();
             if ($managerRole) {
                 $managerRole->syncPermissions($managerPermissions);
