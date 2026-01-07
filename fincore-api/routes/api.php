@@ -190,6 +190,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/user/{userId}/unlock', [StaffSessionController::class, 'unlockUserAccount']);
         Route::post('/user/{userId}/lock', [StaffSessionController::class, 'lockUserAccount']);
         Route::get('/attendance-report', [StaffSessionController::class, 'getAttendanceReport']);
+        Route::post('/mark-attendance', [StaffSessionController::class, 'markAttendance']);
     });
 
     // ==================== PROTECTED ROUTES (AUTH + ACTIVE SESSION) ====================

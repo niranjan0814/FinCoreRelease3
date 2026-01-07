@@ -381,7 +381,9 @@ class StaffSessionController extends BaseController
      */
     public function getAttendanceReport(Request $request)
     {
-        if (!$request->user()->hasPermissionTo('attendance.view_reports')) {
+        if (!$request->user()->hasPermissionTo('attendance.view_reports') && 
+            !$request->user()->hasPermissionTo('attendance.approve') &&
+            !$request->user()->hasPermissionTo('sessions.view')) {
             return $this->forbidden('Permission denied');
         }
 
@@ -390,36 +392,82 @@ class StaffSessionController extends BaseController
         ]);
 
         $date = $request->date;
+        $currentUser = $request->user();
+
+        // Get all active users who can have attendance, respecting hierarchy
+        $userQuery = User::where('is_active', true)
+            ->with(['staffDetail']);
+
+        // Apply hierarchy visibility (consistent with UserController)
+        if (!$currentUser->isSuperAdmin()) {
+            $userQuery->whereHas('roles', function ($q) use ($currentUser) {
+                $q->where('hierarchy', '>=', $currentUser->getRoleHierarchy());
+            });
+        }
+
+        $users = $userQuery->get();
+
+
 
         // Get all sessions for the date
-        $sessions = StaffSession::with(['user', 'user.staffDetail'])
-            ->where('date', $date)
-            ->orderBy('login_at')
-            ->get();
+        $sessions = StaffSession::where('date', $date)->get()->groupBy('user_id');
 
-        // Group by user
-        $grouped = $sessions->groupBy('user_id')->map(function ($userSessions, $userId) {
-            $user = $userSessions->first()->user;
-            $totalMinutes = $userSessions->where('status', StaffSession::STATUS_CLOSED)->sum('worked_minutes');
+        $report = $users->map(function ($user) use ($sessions) {
+            $userSessions = $sessions->get($user->id, collect());
             
+            // Calculate total minutes including active session
+            $totalMinutes = 0;
+            $isOnline = false;
+            foreach ($userSessions as $s) {
+                if ($s->status === StaffSession::STATUS_CLOSED) {
+                    $totalMinutes += $s->worked_minutes;
+                } else {
+                    $totalMinutes += $s->login_at->diffInMinutes(now());
+                    $isOnline = true;
+                }
+            }
+
+            $firstSession = $userSessions->sortBy('login_at')->first();
+            $lastSession = $userSessions->sortByDesc('login_at')->first();
+            
+            // Determine a robust attendance status
+            $status = 'PENDING';
+            if ($userSessions->isNotEmpty()) {
+                // If any session is approved/present, mark as such
+                if ($userSessions->contains('attendance_status', StaffSession::ATTENDANCE_APPROVED)) {
+                    $status = StaffSession::ATTENDANCE_APPROVED;
+                } elseif ($userSessions->contains('attendance_status', StaffSession::ATTENDANCE_PRESENT)) {
+                    $status = StaffSession::ATTENDANCE_PRESENT;
+                } elseif ($userSessions->contains('attendance_status', StaffSession::ATTENDANCE_REJECTED)) {
+                    $status = StaffSession::ATTENDANCE_REJECTED;
+                }
+            }
+
             return [
-                'user_id' => $userId,
+                'user_id' => $user->id,
                 'user_name' => $user->user_name,
                 'full_name' => $user->staffDetail?->full_name ?? $user->user_name,
+                'avatar' => $user->avatar_url,
+                'is_online' => $isOnline,
                 'sessions_count' => $userSessions->count(),
-                'first_login' => $userSessions->min('login_at'),
-                'last_logout' => $userSessions->max('logout_at'),
+                'first_login' => $firstSession?->login_at?->toIso8601String(),
+                'last_logout' => $userSessions->where('status', StaffSession::STATUS_CLOSED)->max('logout_at')?->toIso8601String(),
                 'total_worked_minutes' => $totalMinutes,
                 'total_worked_hours' => round($totalMinutes / 60, 2),
-                'attendance_status' => $userSessions->first()->attendance_status,
+                'attendance_status' => $status,
+                'current_session_status' => $lastSession ? $lastSession->status : null,
             ];
         })->values();
 
+
         return $this->success([
+
             'date' => $date,
-            'total_staff_present' => $grouped->count(),
-            'report' => $grouped,
+            'total_staff' => $users->count(),
+            'total_staff_present' => $report->where('sessions_count', '>', 0)->count(),
+            'report' => $report,
         ], 'Attendance report generated successfully');
+
     }
 
     /**
@@ -585,6 +633,78 @@ class StaffSessionController extends BaseController
                 'total_worked_hours' => round($totalMinutes / 60, 2),
             ],
         ], 'User session history retrieved successfully');
+    }
+
+    /**
+     * Mark/Update attendance manually (for managers)
+     */
+    public function markAttendance(Request $request)
+    {
+        if (!$request->user()->hasPermissionTo('attendance.approve')) {
+            return $this->forbidden('Permission denied');
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'date' => 'required|date|date_format:Y-m-d',
+            'status' => 'nullable|string|in:Present,Absent,Half Day,Leave,Not Marked',
+            'checkIn' => 'nullable|string|date_format:H:i',
+            'checkOut' => 'nullable|string|date_format:H:i|after_or_equal:checkIn',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
+        $userId = $request->user_id;
+        $date = Carbon::parse($request->date);
+        
+        // Find existing session for this date
+        $session = StaffSession::where('user_id', $userId)
+            ->where('date', $date->toDateString())
+            ->first();
+
+        $data = [
+            'remarks' => $request->remarks,
+            'attendance_status' => StaffSession::ATTENDANCE_APPROVED, // Manually marked is auto-approved
+        ];
+
+        if ($request->checkIn) {
+            $data['login_at'] = Carbon::parse($date->toDateString() . ' ' . $request->checkIn);
+        }
+
+        if ($request->checkOut) {
+            $data['logout_at'] = Carbon::parse($date->toDateString() . ' ' . $request->checkOut);
+        }
+
+        if ($session) {
+            // Update existing
+            $session->update($data);
+            if ($session->login_at && $session->logout_at) {
+                $session->update([
+                    'worked_minutes' => $session->login_at->diffInMinutes($session->logout_at),
+                    'status' => StaffSession::STATUS_CLOSED
+                ]);
+            }
+        } else {
+            // Create new
+            $data['user_id'] = $userId;
+            $data['date'] = $date->toDateString();
+            $data['status'] = ($request->checkIn && $request->checkOut) ? StaffSession::STATUS_CLOSED : StaffSession::STATUS_OPEN;
+            
+            if (!$request->checkIn) {
+                $data['login_at'] = Carbon::parse($date->toDateString() . ' 08:30:00'); // Default checkin
+            }
+
+            $session = StaffSession::create($data);
+            
+            if ($session->login_at && $session->logout_at) {
+                $session->update([
+                    'worked_minutes' => $session->login_at->diffInMinutes($session->logout_at)
+                ]);
+            }
+        }
+
+        return $this->success([
+            'session' => $this->formatSessionWithUser($session),
+        ], 'Attendance marked successfully');
     }
 
     // ==================== HELPER METHODS ====================
