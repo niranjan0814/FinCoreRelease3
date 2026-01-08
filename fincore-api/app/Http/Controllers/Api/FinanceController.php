@@ -266,9 +266,9 @@ class FinanceController extends Controller
     }
 
     /**
-     * Get salaries that are processed but not yet disbursed.
+     * Get salaries that are processed and pending manager approval.
      */
-    public function getPendingSalaries(Request $request)
+    public function getSalaryApprovals(Request $request)
     {
         $branchId = $request->query('branch_id');
 
@@ -285,7 +285,64 @@ class FinanceController extends Controller
 
         return response()->json([
             'statusCode' => 2000,
-            'message' => 'Pending salaries fetched successfully',
+            'message' => 'Salary approvals fetched successfully',
+            'data' => $salaries
+        ]);
+    }
+
+    /**
+     * Approve a salary payment.
+     */
+    public function approveSalary(Request $request, $id)
+    {
+        try {
+            $salary = \App\Models\SalaryPayment::findOrFail($id);
+
+            if ($salary->status !== 'Pending') {
+                return response()->json([
+                    'statusCode' => 4220,
+                    'message' => 'Only pending salaries can be approved.'
+                ], 422);
+            }
+
+            $salary->update([
+                'status' => 'Approved'
+            ]);
+
+            return response()->json([
+                'statusCode' => 2000,
+                'message' => 'Salary approved successfully',
+                'data' => $salary
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'statusCode' => 5000,
+                'message' => 'Failed to approve salary: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get salaries that are approved but not yet disbursed.
+     */
+    public function getPendingSalaries(Request $request)
+    {
+        $branchId = $request->query('branch_id');
+
+        $query = \App\Models\SalaryPayment::with(['staff.branch'])
+            ->where('status', 'Approved');
+
+        if ($branchId) {
+            $query->whereHas('staff', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
+
+        $salaries = $query->latest()->get();
+
+        return response()->json([
+            'statusCode' => 2000,
+            'message' => 'Approved salaries fetched successfully',
             'data' => $salaries
         ]);
     }
@@ -299,10 +356,10 @@ class FinanceController extends Controller
             return DB::transaction(function () use ($request, $id) {
                 $salary = \App\Models\SalaryPayment::with(['staff.branch'])->findOrFail($id);
 
-                if ($salary->status !== 'Pending') {
+                if ($salary->status !== 'Approved') {
                     return response()->json([
                         'statusCode' => 4220,
-                        'message' => 'Only pending salaries can be disbursed.'
+                        'message' => 'Only approved salaries can be disbursed.'
                     ], 422);
                 }
 
@@ -310,7 +367,7 @@ class FinanceController extends Controller
 
                 // 1. Update Status
                 $salary->update([
-                    'status' => 'Paid',
+                    'status' => 'Disbursed',
                     'payment_date' => now()
                 ]);
 

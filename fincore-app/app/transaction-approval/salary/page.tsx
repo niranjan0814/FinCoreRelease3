@@ -1,42 +1,60 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SalaryApprovalStats } from '../../../components/transaction-approval/salary/SalaryApprovalStats';
 import { SalaryApprovalTable } from '../../../components/transaction-approval/salary/SalaryApprovalTable';
+import { financeService } from '../../../services/finance.service';
 import { toast } from 'react-toastify';
+import { Loader2 } from 'lucide-react';
 
 export default function SalaryApprovalPage() {
-    // Mock data based on the screenshot
-    const [records, setRecords] = useState<{
-        id: string;
-        processedDate: string;
-        employeeName: string;
-        role: string;
-        month: string;
-        baseSalary: number;
-        adjustments: number;
-        totalPaid: number;
-        status: 'Pending' | 'Approved' | 'Rejected';
-    }[]>([
-        {
-            id: '1',
-            processedDate: 'Jan 07, 2026',
-            employeeName: 'Jane Smith',
-            role: 'HR',
-            month: '2026-01',
-            baseSalary: 55000,
-            adjustments: 0,
-            totalPaid: 55000,
-            status: 'Pending' as const
-        }
-    ]);
+    const [records, setRecords] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleApprove = (id: string) => {
-        setRecords(prev => prev.map(rec =>
-            rec.id === id ? { ...rec, status: 'Approved' } : rec
-        ));
-        toast.success('Salary approved successfully');
+    useEffect(() => {
+        fetchRecords();
+    }, []);
+
+    const fetchRecords = async () => {
+        try {
+            setLoading(true);
+            const data = await financeService.getSalaryApprovals();
+            setRecords(data);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to fetch salary records');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    const handleApprove = async (id: string) => {
+        try {
+            await financeService.approveSalary(parseInt(id));
+            toast.success('Salary approved successfully');
+            // Remove from list or update local state
+            setRecords(prev => prev.filter(rec => rec.id.toString() !== id.toString()));
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to approve salary');
+        }
+    };
+
+    // Calculate dynamic stats
+    const stats = {
+        pendingCount: records.length,
+        pendingAmount: records.reduce((sum, r) => sum + parseFloat(r.net_payable), 0),
+        approvedCount: 0, // In this page we only show what's waiting
+        approvedAmount: 0,
+        monthlyTotal: records.reduce((sum, r) => sum + parseFloat(r.net_payable), 0),
+        monthlyCount: records.length
+    };
+
+    if (loading) {
+        return (
+            <div className="h-[400px] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-8 animate-in fade-in duration-500">
@@ -46,16 +64,21 @@ export default function SalaryApprovalPage() {
             </div>
 
             <SalaryApprovalStats
-                pendingCount={1}
-                pendingAmount={55000}
-                approvedCount={0}
-                approvedAmount={0}
-                monthlyTotal={55000}
-                monthlyCount={1}
+                {...stats}
             />
 
             <SalaryApprovalTable
-                records={records}
+                records={records.map(r => ({
+                    id: r.id.toString(),
+                    processedDate: new Date(r.created_at).toLocaleDateString(),
+                    employeeName: r.staff?.full_name || 'Unknown',
+                    role: r.staff?.work_info?.designation || r.staff?.role || 'Staff',
+                    month: r.month,
+                    baseSalary: parseFloat(r.base_salary),
+                    adjustments: parseFloat(r.allowances) - parseFloat(r.deductions),
+                    totalPaid: parseFloat(r.net_payable),
+                    status: r.status
+                }))}
                 onApprove={handleApprove}
             />
         </div>

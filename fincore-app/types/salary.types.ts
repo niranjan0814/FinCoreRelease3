@@ -8,7 +8,7 @@ export interface SalaryPayment {
     deductions: number;
     netPayable: number;
     paymentDate: string;
-    status: 'Paid' | 'Processing' | 'Pending';
+    status: 'Paid' | 'Processing' | 'Pending' | 'Approved' | 'Disbursed';
     paymentMethod: 'Bank Transfer' | 'Cash' | 'Cheque';
 }
 
