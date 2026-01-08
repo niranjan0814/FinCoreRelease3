@@ -270,6 +270,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/{staff_id}', [StaffController::class, 'destroy'])->middleware('permission:staff.delete');
         });
 
+        // Payroll Management
+        Route::prefix('payroll')->group(function () {
+            Route::get('/stats', [\App\Http\Controllers\Api\PayrollController::class, 'getStats'])->middleware('permission:payroll.view');
+            Route::get('/history', [\App\Http\Controllers\Api\PayrollController::class, 'getHistory'])->middleware('permission:payroll.view');
+            Route::post('/process', [\App\Http\Controllers\Api\PayrollController::class, 'processPayment'])->middleware('permission:payroll.create');
+        });
+
         // Customer Management
         Route::prefix('customers')->group(function () {
             Route::get('/', [CustomerController::class, 'index'])->middleware('permission:customers.view');
@@ -323,6 +330,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // User Management
         Route::prefix('users')->group(function () {
+            Route::get('/list', [UserController::class, 'list']);
             Route::get('/', [UserController::class, 'index'])->middleware('permission:users.view,staff.view');
             Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create,staff.create');
             Route::get('/{user}', [UserController::class, 'show'])->middleware('permission:users.view,staff.view');

@@ -12,6 +12,10 @@ export interface Complaint {
     status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
     assignedTo?: string;
     resolution?: string;
+    assignerId?: string;
+    assignerName?: string;
+    assigneeId?: string;
+    assigneeName?: string;
 }
 
 export interface ComplaintFormData {
@@ -21,6 +25,7 @@ export interface ComplaintFormData {
     category: string;
     priority: 'High' | 'Medium' | 'Low';
     assignedTo: string;
+    assigneeId?: string;
     subject: string;
     description: string;
 }

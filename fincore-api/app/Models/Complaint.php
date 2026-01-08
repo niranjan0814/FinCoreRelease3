@@ -22,6 +22,10 @@ class Complaint extends Model
         'status',
         'assigned_to',
         'resolution',
+        'assigner_id',
+        'assigner_name',
+        'assignee_id',
+        'assignee_name',
     ];
 
     // Optional: Cast attributes if needed

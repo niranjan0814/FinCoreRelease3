@@ -18,10 +18,6 @@ export const complaintService = {
 
             const json = await response.json();
 
-            // Map backend fields to frontend interface if strictly needed, or ensure backend matches.
-            // Backend fields: ticket_no, complainant_name, complainant_type, branch_name, category, subject, description, priority, status, assigned_to
-            // Frontend interface: ticketNo, complainant, complainantType, branch, category, subject, description, priority, status, assignedTo
-
             const mappedData = json.data.map((item: any) => ({
                 id: item.id.toString(),
                 ticketNo: item.ticket_no,
@@ -35,7 +31,11 @@ export const complaintService = {
                 priority: item.priority,
                 status: item.status,
                 assignedTo: item.assigned_to,
-                resolution: item.resolution
+                resolution: item.resolution,
+                assignerId: item.assigner_id,
+                assignerName: item.assigner_name,
+                assigneeId: item.assignee_id,
+                assigneeName: item.assignee_name,
             }));
 
             return { data: mappedData, meta: json.meta };
@@ -55,7 +55,8 @@ export const complaintService = {
                 subject: data.subject,
                 description: data.description,
                 priority: data.priority,
-                assigned_to: data.assignedTo
+                assigned_to: data.assignedTo,
+                assignee_id: data.assigneeId
             };
 
             const response = await fetch(`${API_BASE_URL}/complaints`, {
@@ -85,7 +86,11 @@ export const complaintService = {
                 priority: item.priority as any,
                 status: item.status as any,
                 assignedTo: item.assigned_to,
-                resolution: item.resolution
+                resolution: item.resolution,
+                assignerId: item.assigner_id,
+                assignerName: item.assigner_name,
+                assigneeId: item.assignee_id,
+                assigneeName: item.assignee_name,
             };
         } catch (error) {
             console.error(error);
@@ -102,6 +107,34 @@ export const complaintService = {
             });
 
             if (!response.ok) throw new Error('Failed to update status');
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    updateComplaint: async (id: string, data: Partial<ComplaintFormData>): Promise<boolean> => {
+        try {
+            const payload = {
+                complainant_name: data.complainant,
+                complainant_type: data.complainantType,
+                branch_name: data.branch,
+                category: data.category,
+                subject: data.subject,
+                description: data.description,
+                priority: data.priority,
+                assigned_to: data.assignedTo,
+                assignee_id: data.assigneeId
+            };
+
+            const response = await fetch(`${API_BASE_URL}/complaints/${id}`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Failed to update complaint');
             return true;
         } catch (error) {
             console.error(error);
