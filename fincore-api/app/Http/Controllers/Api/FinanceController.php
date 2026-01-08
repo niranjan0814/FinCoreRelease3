@@ -22,7 +22,8 @@ class FinanceController extends Controller
         $date = $request->query('date');
         $period = $request->query('period', 'day'); // day, month, year, all
 
-        $query = BranchExpense::with(['transaction.staff', 'branch']);
+        $query = BranchExpense::with(['transaction.staff', 'branch'])
+            ->whereNotIn('expense_type', ['Loan Disbursement', 'Salary Payment']);
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
@@ -212,6 +213,18 @@ class FinanceController extends Controller
 
                 // 3. Update Receipt Status
                 $receipt->update(['status' => 'settled']);
+
+                // 4. Record in BranchExpense (as an inflow)
+                BranchExpense::create([
+                    'branch_id' => $receipt->center->branch_id,
+                    'transaction_id' => $transaction->id,
+                    'type' => 'inflow',
+                    'date' => now()->toDateString(),
+                    'expense_type' => 'Loan Collection',
+                    'medium' => 'Cash',
+                    'description' => "Settled Loan Collection: Receipt #{$receipt->receipt_id}",
+                    'amount' => $receipt->current_due_amount,
+                ]);
 
                 return response()->json([
                     'statusCode' => 2000,

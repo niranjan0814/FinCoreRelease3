@@ -2,12 +2,12 @@ import React from 'react';
 import { TrendingUp, TrendingDown, Wallet, ArrowRightLeft } from 'lucide-react';
 import { BranchExpense } from '../../types/finance.types';
 
-export function BranchTruncationStats({ stats }: { stats: any }) {
+export function BranchTruncationStats({ stats, period = 'day' }: { stats: any; period?: string }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all group overflow-hidden relative">
                 <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs font-bold text-green-600 dark:text-green-500 uppercase tracking-wider">Total Income (day)</p>
+                    <p className="text-xs font-bold text-green-600 dark:text-green-500 uppercase tracking-wider">Total Income ({period})</p>
                     <TrendingUp className="w-6 h-6 text-green-500" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 dark:text-gray-100">LKR {(stats?.total_income || 0).toLocaleString()}</h3>
@@ -16,7 +16,7 @@ export function BranchTruncationStats({ stats }: { stats: any }) {
 
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all group overflow-hidden relative">
                 <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs font-bold text-red-600 dark:text-red-500 uppercase tracking-wider">Total Expense (day)</p>
+                    <p className="text-xs font-bold text-red-600 dark:text-red-500 uppercase tracking-wider">Total Expense ({period})</p>
                     <TrendingDown className="w-6 h-6 text-red-500" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 dark:text-gray-100">LKR {(stats?.total_expense || 0).toLocaleString()}</h3>
@@ -34,7 +34,7 @@ export function BranchTruncationStats({ stats }: { stats: any }) {
 
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all group overflow-hidden relative">
                 <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs font-bold text-purple-600 dark:text-purple-500 uppercase tracking-wider">Total Branch Truncation (day)</p>
+                    <p className="text-xs font-bold text-purple-600 dark:text-purple-500 uppercase tracking-wider">Total Branch Truncation ({period})</p>
                     <ArrowRightLeft className="w-6 h-6 text-purple-500" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 dark:text-gray-100">LKR {(stats?.total_truncation || 0).toLocaleString()}</h3>
