@@ -27,7 +27,12 @@ export default function FundTransactionsPage() {
     });
 
     const [isLoading, setIsLoading] = useState(false);
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState({
+        total_income: 0,
+        total_expense: 0,
+        net_flow: 9945000,
+        total_truncation: 0
+    });
     const [investments] = useState([
         { id: '1', shareholderName: 'Nimal Perera', totalInvestment: 2500000, status: 'Active' },
     ]);
@@ -46,15 +51,35 @@ export default function FundTransactionsPage() {
         }
     };
 
+    const fetchStats = async () => {
+        try {
+            const data = await financeService.getBranchTransactions();
+            setStats(data.stats);
+        } catch (error) {
+            console.error('Failed to fetch stats', error);
+        }
+    };
+
+    const fetchSalaries = async () => {
+        try {
+            const data = await financeService.getPendingSalaries();
+            setSalaries(data);
+        } catch (error) {
+            toast.error('Failed to fetch pending salaries');
+        }
+    };
+
     React.useEffect(() => {
         fetchLoans();
+        fetchSalaries();
+        fetchStats();
     }, []);
 
     const handleDisburseClick = (type: 'loan' | 'salary', record: any) => {
         setPayoutModal({
             isOpen: true,
-            recipientName: type === 'loan' ? record.customer?.full_name : record.staffName,
-            amount: type === 'loan' ? parseFloat(record.approved_amount) : record.netPayable,
+            recipientName: type === 'loan' ? record.customer?.full_name : record.staff?.full_name,
+            amount: type === 'loan' ? parseFloat(record.approved_amount) : parseFloat(record.net_payable),
             type,
             id: record.id
         });
@@ -66,12 +91,13 @@ export default function FundTransactionsPage() {
             if (payoutModal.type === 'loan') {
                 await financeService.disburseLoan(Number(payoutModal.id));
                 toast.success('Loan disbursed and activated successfully!');
-                await fetchLoans(); // Refresh the list
+                await fetchLoans();
             } else {
-                // Future implementation for salaries
-                setSalaries(prev => prev.map(s => s.id === payoutModal.id ? { ...s, status: 'Paid', refNo } : s));
-                toast.success(`Salary Payout simulated! Ref No: ${refNo}`);
+                await financeService.disburseSalary(Number(payoutModal.id));
+                toast.success('Salary disbursed and recorded successfully!');
+                await fetchSalaries();
             }
+            fetchStats();
             setPayoutModal(prev => ({ ...prev, isOpen: false }));
         } catch (error: any) {
             toast.error(error.message || 'Disbursement failed');
@@ -111,7 +137,7 @@ export default function FundTransactionsPage() {
                 </div>
             </div>
 
-            <FundTruncationStats />
+            <FundTruncationStats stats={stats} />
 
             {/* Tabs */}
             <div className="space-y-6">

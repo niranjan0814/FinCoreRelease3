@@ -3,17 +3,21 @@ import { Search, WalletMinimal } from 'lucide-react';
 
 interface SalaryDisbursement {
     id: string;
-    staffName: string;
-    role: string;
+    staff?: {
+        full_name: string;
+        role: string;
+        work_info?: {
+            designation: string;
+        };
+    };
     month: string;
-    netPayable: number;
+    net_payable: number;
     status: string;
-    refNo: string;
 }
 
 interface Props {
-    records: SalaryDisbursement[];
-    onDisburse: (record: SalaryDisbursement) => void;
+    records: any[];
+    onDisburse: (record: any) => void;
 }
 
 export function SalaryDisbursementTable({ records, onDisburse }: Props) {
@@ -49,25 +53,25 @@ export function SalaryDisbursementTable({ records, onDisburse }: Props) {
                                 <tr key={record.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-md shadow-blue-100">
-                                                {record.staffName.charAt(0)}
+                                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-md shadow-blue-100 uppercase">
+                                                {record.staff?.full_name?.charAt(0) || 'S'}
                                             </div>
-                                            <p className="font-bold text-gray-900 dark:text-gray-100 text-sm whitespace-nowrap">{record.staffName}</p>
+                                            <p className="font-bold text-gray-900 dark:text-gray-100 text-sm whitespace-nowrap">{record.staff?.full_name || 'System Staff'}</p>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-6 text-gray-500 dark:text-gray-400 text-sm font-medium">{record.role}</td>
+                                    <td className="px-8 py-6 text-gray-500 dark:text-gray-400 text-sm font-medium">{record.staff?.work_info?.designation || record.staff?.role || 'Staff'}</td>
                                     <td className="px-8 py-6 text-center text-gray-500 dark:text-gray-400 text-sm font-medium">{record.month}</td>
-                                    <td className="px-8 py-6 text-center font-bold text-gray-900 dark:text-gray-100 text-base">LKR {record.netPayable.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-center font-bold text-gray-900 dark:text-gray-100 text-base">LKR {Number(record.net_payable).toLocaleString()}</td>
                                     <td className="px-8 py-6 text-center">
                                         <span className={`inline-flex items-center px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider ${record.status === 'Paid'
-                                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                                : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                            : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
                                             }`}>
                                             {record.status}
                                         </span>
                                     </td>
                                     <td className="px-8 py-6 text-center text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                        {record.refNo || '-'}
+                                        {record.id}
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         {record.status !== 'Paid' ? (

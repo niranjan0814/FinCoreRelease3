@@ -392,6 +392,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/unsettled-receipts', [FinanceController::class, 'getUnsettledReceipts']);
             Route::post('/settle-receipt', [FinanceController::class, 'settleReceipt']);
             Route::get('/approved-loans', [FinanceController::class, 'getApprovedLoans']);
+            Route::get('/pending-salaries', [FinanceController::class, 'getPendingSalaries']);
+            Route::post('/salaries/{id}/disburse', [FinanceController::class, 'disburseSalary']);
         });
     });
 });

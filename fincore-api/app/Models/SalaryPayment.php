@@ -21,6 +21,7 @@ class SalaryPayment extends Model
         'status',
         'payment_method',
         'allowances_detail',
+        'deductions_detail',
         'notes',
         'processed_by'
     ];
@@ -28,6 +29,7 @@ class SalaryPayment extends Model
     protected $casts = [
         'payment_date' => 'date',
         'allowances_detail' => 'array',
+        'deductions_detail' => 'array',
         'base_salary' => 'decimal:2',
         'allowances' => 'decimal:2',
         'deductions' => 'decimal:2',

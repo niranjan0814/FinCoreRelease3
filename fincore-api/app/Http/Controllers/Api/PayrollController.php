@@ -92,6 +92,7 @@ class PayrollController extends BaseController
             'employeeIds' => 'required|array',
             'employeeIds.*' => 'required',
             'allowances_detail' => 'nullable|array',
+            'deductions_detail' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -128,10 +129,11 @@ class PayrollController extends BaseController
                     'allowances' => $request->allowances,
                     'deductions' => $request->deductions,
                     'net_payable' => $netPayablePerHead,
-                    'payment_date' => now(),
-                    'status' => 'Paid',
+                    'payment_date' => null,
+                    'status' => 'Pending',
                     'payment_method' => $request->paymentMethod,
                     'allowances_detail' => $request->allowances_detail,
+                    'deductions_detail' => $request->deductions_detail,
                     'notes' => $request->notes,
                     'processed_by' => auth()->id(),
                 ]);
