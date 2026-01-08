@@ -16,8 +16,8 @@ export default function FundTransactionsPage() {
         isOpen: boolean;
         recipientName: string;
         amount: number;
-        type: 'loan' | 'salary';
-        id: string;
+        type: 'loan' | 'salary' | 'bulk-salary';
+        id: string | string[];
     }>({
         isOpen: false,
         recipientName: '',
@@ -38,9 +38,7 @@ export default function FundTransactionsPage() {
     ]);
 
     const [loans, setLoans] = useState<any[]>([]);
-    const [salaries, setSalaries] = useState<any[]>([
-        { id: '1', staffName: 'Jane Smith', role: 'HR', month: '2026-01', netPayable: 55000, status: 'Approved', refNo: '' }
-    ]);
+    const [salaries, setSalaries] = useState<any[]>([]);
 
     const fetchLoans = async () => {
         try {
@@ -85,16 +83,33 @@ export default function FundTransactionsPage() {
         });
     };
 
+    const handleBulkSalaryDisburse = (selectedRecords: any[]) => {
+        const totalAmount = selectedRecords.reduce((sum, rec) => sum + parseFloat(rec.net_payable), 0);
+        setPayoutModal({
+            isOpen: true,
+            recipientName: `${selectedRecords.length} Staff Members (Bulk Transfer)`,
+            amount: totalAmount,
+            type: 'bulk-salary',
+            id: selectedRecords.map(r => r.id.toString())
+        });
+    };
+
     const handleConfirmPayout = async (refNo: string, remark: string) => {
         setIsLoading(true);
         try {
             if (payoutModal.type === 'loan') {
                 await financeService.disburseLoan(Number(payoutModal.id));
-                toast.success('Loan disbursed and activated successfully!');
+                toast.success('Loan disbursed successfully!');
                 await fetchLoans();
-            } else {
+            } else if (payoutModal.type === 'salary') {
                 await financeService.disburseSalary(Number(payoutModal.id));
-                toast.success('Salary disbursed and recorded successfully!');
+                toast.success('Salary disbursed successfully!');
+                await fetchSalaries();
+            } else if (payoutModal.type === 'bulk-salary') {
+                const ids = payoutModal.id as string[];
+                // Parallel promises for bulk disbursement
+                await Promise.all(ids.map(id => financeService.disburseSalary(Number(id))));
+                toast.success(`${ids.length} Salaries disbursed successfully!`);
                 await fetchSalaries();
             }
             fetchStats();
@@ -128,11 +143,6 @@ export default function FundTransactionsPage() {
                                 {period}
                             </button>
                         ))}
-                    </div>
-                    <div className="h-4 w-px bg-gray-100 dark:bg-gray-700 mx-1"></div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-gray-600 dark:text-gray-400">
-                        <Calendar className="w-4 h-4" />
-                        07/01/2026
                     </div>
                 </div>
             </div>
@@ -175,6 +185,7 @@ export default function FundTransactionsPage() {
                         <SalaryDisbursementTable
                             records={salaries}
                             onDisburse={(rec) => handleDisburseClick('salary', rec)}
+                            onBulkDisburse={handleBulkSalaryDisburse}
                         />
                     )}
                 </div>

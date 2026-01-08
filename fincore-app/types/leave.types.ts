@@ -2,6 +2,7 @@ export interface LeaveRequestFormData {
     leaveType: string;
     startDate: string;
     endDate: string;
+    totalDays: number;
     reason: string;
 }
 

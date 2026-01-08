@@ -12,15 +12,15 @@ import { LeaveRequestFormData } from '@/types/leave.types';
 import { toast } from 'react-toastify';
 import { AttendanceHistoryTable } from './attendance/AttendanceHistoryTable';
 import { AttendanceDailyTable } from './attendance/AttendanceDailyTable';
+import { LeaveRequestsView } from './leave/LeaveRequestsView';
 
 export const AttendanceView: React.FC = () => {
-    const [view, setView] = useState<'daily' | 'history'>('daily');
+    const [view, setView] = useState<'daily' | 'history' | 'leaves'>('daily');
     const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
-    const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
@@ -68,9 +68,6 @@ export const AttendanceView: React.FC = () => {
         }
     };
 
-    const handleSubmitLeaveRequest = async (data: LeaveRequestFormData) => {
-        await leaveService.submitLeaveRequest(data);
-    };
 
     // Filter records based on role and search/status filters
     const filteredRecords = records.filter(record => {
@@ -114,21 +111,21 @@ export const AttendanceView: React.FC = () => {
                         >
                             History
                         </button>
+                        <button
+                            onClick={() => setView('leaves')}
+                            className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${view === 'leaves'
+                                ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            Leaves
+                        </button>
                     </div>
                 </div>
 
 
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    {view === 'daily' && (
-                        <button
-                            onClick={() => setShowLeaveModal(true)}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all font-semibold text-sm shadow-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Request Leave
-                        </button>
-                    )}
 
                     {view === 'daily' && isAdmin && (
                         <>
@@ -211,16 +208,12 @@ export const AttendanceView: React.FC = () => {
                         )
                     )}
                 </>
-            ) : (
+            ) : view === 'history' ? (
                 <AttendanceHistoryTable isAdmin={isAdmin} />
+            ) : (
+                <LeaveRequestsView isAdmin={isAdmin} />
             )}
 
-            {showLeaveModal && (
-                <LeaveRequestModal
-                    onClose={() => setShowLeaveModal(false)}
-                    onSubmit={handleSubmitLeaveRequest}
-                />
-            )}
         </div>
     );
 };
