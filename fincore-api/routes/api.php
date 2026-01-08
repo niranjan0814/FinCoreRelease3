@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\CenterChangeRequestController;
 use App\Http\Controllers\Api\CustomerEditRequestController;
 use App\Http\Controllers\Api\ShareholderController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\LeaveRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -345,6 +346,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/{user}/statistics', [UserController::class, 'getStatistics'])->middleware('permission:users.view,staff.view');
             Route::get('/{user}/activity-log', [UserController::class, 'getActivityLog'])->middleware('permission:users.view,staff.view');
             Route::post('/bulk/status', [UserController::class, 'bulkUpdateStatus'])->middleware('permission:users.edit,staff.edit');
+        });
+
+        // Leave Management
+        Route::prefix('leaves')->group(function () {
+            Route::get('/', [LeaveRequestController::class, 'index'])->middleware('permission:leave.view');
+            Route::get('/my-requests', [LeaveRequestController::class, 'myRequests']);
+            Route::post('/', [LeaveRequestController::class, 'store']);
+            Route::patch('/{id}/status', [LeaveRequestController::class, 'updateStatus'])->middleware('permission:leave.approve');
         });
 
         // Permission Management

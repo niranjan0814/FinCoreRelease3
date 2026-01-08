@@ -12,6 +12,7 @@ import { authService } from '../../services/auth.service';
 import { User, Permission, StaffStats } from '../../types/staff.types';
 import { useRouter } from 'next/navigation';
 import { AttendanceView } from '../../components/staff/AttendanceView';
+import { LeaveRequestsView } from '../../components/staff/leave/LeaveRequestsView';
 import Complaints from '../../components/complaints/Complaints';
 import { SalaryManagement } from '../../components/staff/salary/SalaryManagement';
 
@@ -263,9 +264,8 @@ export default function StaffManagementPage() {
 
                 {/* Leave Tab Content */}
                 {activeTab === 'leave' && (
-                    <div className="p-12 text-center text-gray-500">
-                        <h3 className="text-lg font-medium">Leave Requests</h3>
-                        <p className="mt-2">This module is coming soon to handle staff leave applications and approvals.</p>
+                    <div className="p-6">
+                        <LeaveRequestsView isAdmin={currentUserRole === 'super_admin' || currentUserRole === 'admin'} />
                     </div>
                 )}
 

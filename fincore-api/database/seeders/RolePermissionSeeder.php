@@ -37,6 +37,7 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'Investment Management', 'slug' => 'investment-management', 'icon' => 'users', 'color' => 'blue'],
                 ['name' => 'Customer Management', 'slug' => 'customer-management', 'icon' => 'users', 'color' => 'blue'],
                 ['name' => 'Payroll Management', 'slug' => 'payroll-management', 'icon' => 'money-check-alt', 'color' => 'green'],
+                ['name' => 'Leave Management', 'slug' => 'leave-management', 'icon' => 'calendar-alt', 'color' => 'indigo'],
             ];
 
             foreach ($groups as $group) {
@@ -134,8 +135,10 @@ class RolePermissionSeeder extends Seeder
                 ['name' => 'permissions.delete', 'display_name' => 'Delete Permissions', 'module' => 'permissions', 'permission_group_id' => 3],
 
                 // Payroll Management
-                ['name' => 'payroll.view', 'display_name' => 'View Payroll', 'module' => 'payroll', 'permission_group_id' => 14], // Assuming 14 is the next ID, or logic finds it. Wait, permission_group_id is hardcoded in this seeder?
+                ['name' => 'payroll.view', 'display_name' => 'View Payroll', 'module' => 'payroll', 'permission_group_id' => 14],
                 ['name' => 'payroll.create', 'display_name' => 'Process Payroll', 'module' => 'payroll', 'permission_group_id' => 14],
+                ['name' => 'leave.view', 'display_name' => 'View Leave Requests', 'module' => 'leaves', 'permission_group_id' => 15],
+                ['name' => 'leave.approve', 'display_name' => 'Approve Leave Requests', 'module' => 'leaves', 'permission_group_id' => 15],
             ];
 
             foreach ($permissions as $permission) {
@@ -256,6 +259,8 @@ class RolePermissionSeeder extends Seeder
                 'customers.approve_transfer',
                 'payroll.view',
                 'payroll.create',
+                'leave.view',
+                'leave.approve',
             ])->get();
             if ($superAdminRole) {
                 $superAdminRole->syncPermissions($superAdminPermissions);
@@ -314,7 +319,8 @@ class RolePermissionSeeder extends Seeder
                 'customers.approve_transfer',
                 'payroll.view',
                 'payroll.create',
-                
+                'leave.view',
+                'leave.approve',
             ])->get();
              if ($adminRole) {
                 $adminRole->syncPermissions($adminPermissions);
@@ -331,6 +337,8 @@ class RolePermissionSeeder extends Seeder
                 'customers.approve_transfer',
                 'payroll.view',
                 'payroll.create',
+                'leave.view',
+                'leave.approve',
             ])->get();
             if ($managerRole) {
                 $managerRole->syncPermissions($managerPermissions);

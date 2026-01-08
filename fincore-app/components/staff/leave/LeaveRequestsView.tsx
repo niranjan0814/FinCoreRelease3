@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Filter, Search, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
-import { LeaveRequest } from '@/types/leave.types';
+import { Calendar, Filter, Search, CheckCircle, XCircle, Clock, Eye, Plus } from 'lucide-react';
+import { LeaveRequest, LeaveRequestFormData } from '@/types/leave.types';
+import { LeaveRequestModal } from './LeaveRequestModal';
 import { leaveService } from '@/services/leave.service';
 import { authService } from '@/services/auth.service';
 import { ProcessLeaveModal } from './ProcessLeaveModal';
@@ -23,6 +24,7 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
         userName: string;
         status: 'Approved' | 'Rejected';
     } | null>(null);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
 
     useEffect(() => {
         // Set admin state: priority to prop, then check authService
@@ -74,6 +76,18 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
         }
     };
 
+    const handleSubmitLeaveRequest = async (data: LeaveRequestFormData) => {
+        try {
+            await leaveService.submitLeaveRequest(data);
+            toast.success('Leave request submitted successfully');
+            loadRequests();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to submit leave request');
+        } finally {
+            setShowLeaveModal(false);
+        }
+    };
+
     const openProcessModal = (id: string, userName: string, status: 'Approved' | 'Rejected') => {
         setProcessingRequest({ id, userName, status });
     };
@@ -106,6 +120,15 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    {!isAdmin && (
+                        <button
+                            onClick={() => setShowLeaveModal(true)}
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all font-medium text-sm shadow-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Request Leave
+                        </button>
+                    )}
                     <div className="relative flex-grow sm:flex-grow-0">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input
@@ -237,6 +260,13 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
                     userName={processingRequest.userName}
                     onClose={() => setProcessingRequest(null)}
                     onConfirm={handleProcessRequest}
+                />
+            )}
+
+            {showLeaveModal && (
+                <LeaveRequestModal
+                    onClose={() => setShowLeaveModal(false)}
+                    onSubmit={handleSubmitLeaveRequest}
                 />
             )}
         </div>

@@ -16,7 +16,10 @@ export function PayoutModal({ isOpen, onClose, recipientName, amount, onConfirm 
 
     if (!isOpen) return null;
 
-    const handleNext = () => setStep(2);
+    const handleNext = () => {
+        window.open('https://www.seylanbank.lk/corporate/login', '_blank');
+        setStep(2);
+    };
     const handleConfirm = () => {
         onConfirm(refNo, remark);
         setStep(1);

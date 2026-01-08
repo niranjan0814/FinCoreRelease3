@@ -12,15 +12,43 @@ export const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ onClose, o
         leaveType: 'Annual Leave',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
+        totalDays: 1,
         reason: ''
     });
     const [loading, setLoading] = useState(false);
 
+    const calculateTotalDays = () => {
+        if (!formData.startDate || !formData.endDate) return 0;
+        const start = new Date(formData.startDate);
+        const end = new Date(formData.endDate);
+
+        // Reset time parts for accurate day calculation
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        if (end < start) return 0;
+
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        return diffDays;
+    };
+
+    const totalDays = calculateTotalDays();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (totalDays <= 0) {
+            alert("End date must be after or equal to start date");
+            return;
+        }
+
         setLoading(true);
         try {
-            await onSubmit(formData);
+            await onSubmit({
+                ...formData,
+                totalDays
+            });
             onClose();
         } catch (error) {
             console.error("Failed to submit leave request", error);
@@ -80,6 +108,13 @@ export const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ onClose, o
                         </div>
                     </div>
 
+                    {totalDays > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Duration</span>
+                            <span className="text-sm font-bold text-blue-800 dark:text-blue-200">{totalDays} {totalDays === 1 ? 'Day' : 'Days'}</span>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
                         <textarea
@@ -102,7 +137,7 @@ export const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ onClose, o
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || totalDays <= 0}
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                         >
                             {loading ? 'Submitting...' : 'Submit Request'}
