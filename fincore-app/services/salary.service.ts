@@ -1,27 +1,31 @@
 import { SalaryPayment, SalaryStats } from '@/types/salary.types';
 import { API_BASE_URL, getHeaders } from './api.config';
 
-// Mock data to ensure UI works before backend integration
-const MOCK_STATS: SalaryStats = {
-    totalPayroll: 0,
-    processedCount: 0,
-    averageSalary: 0,
-    activeHeadcount: 0,
-    eligibleForPayroll: 0
-};
-
-const MOCK_HISTORY: SalaryPayment[] = [];
-
 export const salaryService = {
     getStats: async (): Promise<SalaryStats> => {
         try {
             const response = await fetch(`${API_BASE_URL}/payroll/stats`, { headers: getHeaders() });
-            if (!response.ok) return MOCK_STATS;
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch salary stats: ${response.statusText}`);
+            }
+
             const json = await response.json();
-            return json.data || MOCK_STATS;
+
+            if (json.status === 'success' && json.data) {
+                return {
+                    totalPayroll: json.data.totalPayroll || 0,
+                    processedCount: json.data.processedCount || 0,
+                    averageSalary: json.data.averageSalary || 0,
+                    activeHeadcount: json.data.activeHeadcount || 0,
+                    eligibleForPayroll: json.data.eligibleForPayroll || 0
+                };
+            }
+
+            throw new Error('Invalid response format from salary stats API');
         } catch (error) {
             console.error("Error fetching salary stats", error);
-            return MOCK_STATS;
+            throw error;
         }
     },
 
@@ -32,12 +36,21 @@ export const salaryService = {
             if (status) query.append('status', status);
 
             const response = await fetch(`${API_BASE_URL}/payroll/history?${query.toString()}`, { headers: getHeaders() });
-            if (!response.ok) return MOCK_HISTORY;
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch salary history: ${response.statusText}`);
+            }
+
             const json = await response.json();
-            return json.data || MOCK_HISTORY;
+
+            if (json.status === 'success' && Array.isArray(json.data)) {
+                return json.data;
+            }
+
+            throw new Error('Invalid response format from salary history API');
         } catch (error) {
             console.error("Error fetching salary history", error);
-            return MOCK_HISTORY;
+            throw error;
         }
     },
 

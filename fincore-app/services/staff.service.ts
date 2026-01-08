@@ -86,7 +86,7 @@ export const staffService = {
 
             return data.map((u: any) => ({
                 id: u.id,
-                name: u.full_name || u.name || u.user_name,
+                name: `${u.name} (${u.user_name})`,
                 role: u.role
             }));
         } catch (error) {

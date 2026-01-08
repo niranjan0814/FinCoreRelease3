@@ -328,6 +328,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // User Management
         Route::prefix('users')->group(function () {
+            Route::get('/list', [UserController::class, 'list']);
             Route::get('/', [UserController::class, 'index'])->middleware('permission:users.view,staff.view');
             Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create,staff.create');
             Route::get('/{user}', [UserController::class, 'show'])->middleware('permission:users.view,staff.view');

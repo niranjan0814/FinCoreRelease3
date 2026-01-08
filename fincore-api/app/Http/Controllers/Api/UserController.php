@@ -680,4 +680,31 @@ class UserController extends BaseController
             return $this->serverError('Failed to perform bulk status update');
         }
     }
+    /**
+     * Get all users for dropdown lists (lightweight).
+     */
+    public function list(): JsonResponse
+    {
+        try {
+            $users = User::with('staff')->get();
+            
+            $data = $users->map(function ($user) {
+                $name = $user->staff ? $user->staff->full_name : ($user->full_name ?? $user->user_name);
+                return [
+                    'id' => $user->id,
+                    'name' => $name,
+                    'user_name' => $user->user_name, // This is the Staff ID
+                    'role' => $user->roles()->first()?->name
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Users list fetched successfully',
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return $this->serverError('Failed to fetch users list');
+        }
+    }
 }

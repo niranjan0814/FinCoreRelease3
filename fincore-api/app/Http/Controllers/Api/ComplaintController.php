@@ -6,13 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Models\Complaint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Staff;
+use App\Models\User;
 
 class ComplaintController extends Controller
 {
     public function index(Request $request)
     {
         try {
+            $user = Auth::user();
             $query = Complaint::query();
+
+            // Role-based filtering: Non-admin users see only their complaints
+            $isSuperAdmin = $user->roles()->where('name', 'super_admin')->exists();
+            $isAdmin = $user->roles()->where('name', 'admin')->exists();
+
+            if (!$isSuperAdmin && !$isAdmin) {
+                // For field officers and other non-admin roles
+                // Show complaints where they are the assignee OR the assigner
+                $query->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhere('assigner_id', $user->user_name);
+                });
+            }
 
             // Search
             if ($request->has('search') && $request->search) {
@@ -31,6 +48,15 @@ class ComplaintController extends Controller
 
             $complaints = $query->orderBy('created_at', 'desc')->paginate($request->per_page ?? 10);
 
+            // Apply same role-based filtering to counts
+            $countQuery = Complaint::query();
+            if (!$isSuperAdmin && !$isAdmin) {
+                $countQuery->where(function($q) use ($user) {
+                    $q->where('assignee_id', $user->id)
+                      ->orWhere('assigner_id', $user->user_name);
+                });
+            }
+
             return response()->json([
                 'status' => 'success',
                 'data' => $complaints->items(),
@@ -40,10 +66,10 @@ class ComplaintController extends Controller
                     'total' => $complaints->total(),
                     'per_page' => $complaints->perPage(),
                     'counts' => [
-                        'open' => Complaint::where('status', 'Open')->count(),
-                        'in_progress' => Complaint::where('status', 'In Progress')->count(),
-                        'resolved' => Complaint::where('status', 'Resolved')->count(),
-                        'closed' => Complaint::where('status', 'Closed')->count(),
+                        'open' => (clone $countQuery)->where('status', 'Open')->count(),
+                        'in_progress' => (clone $countQuery)->where('status', 'In Progress')->count(),
+                        'resolved' => (clone $countQuery)->where('status', 'Resolved')->count(),
+                        'closed' => (clone $countQuery)->where('status', 'Closed')->count(),
                     ]
                 ]
             ]);
@@ -67,7 +93,16 @@ class ComplaintController extends Controller
             'subject' => 'required|string',
             'description' => 'required|string',
             'priority' => 'required|string',
-            'assigned_to' => 'nullable|string',
+            'assigned_to' => 'nullable|string', // Legacy support
+            'assignee_id' => [
+                'nullable', 
+                'exists:users,id',
+                function ($attribute, $value, $fail) {
+                    if ($value == Auth::id()) {
+                        $fail('You cannot assign a complaint to yourself.');
+                    }
+                },
+            ],
         ]);
 
         try {
@@ -75,6 +110,31 @@ class ComplaintController extends Controller
             $count = Complaint::count() + 1;
             $year = date('Y');
             $ticketNo = "COMP-{$year}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+
+            $user = Auth::user();
+            $assignerId = $user ? $user->user_name : null; 
+            
+            // Fetch Assigner Name properly
+            $assignerName = 'System';
+            if ($user) {
+                $u = User::with('staff')->find($user->id);
+                $name = $u->staff ? $u->staff->full_name : ($u->full_name ?? $u->user_name);
+                $assignerName = "{$name} ({$u->user_name})";
+            }
+
+            $assigneeId = $request->assignee_id ?? null;
+            $assigneeName = null;
+            
+            if ($assigneeId) {
+                $u = User::with('staff')->find($assigneeId);
+                if ($u) {
+                    $name = $u->staff ? $u->staff->full_name : ($u->full_name ?? $u->user_name);
+                    $assigneeName = "{$name} ({$u->user_name})";
+                }
+            }
+
+            // Populate legacy 'assigned_to' if frontend didn't send a combined string
+            $assignedTo = $request->assigned_to ?? $assigneeName;
 
             $complaint = Complaint::create([
                 'ticket_no' => $ticketNo,
@@ -85,8 +145,12 @@ class ComplaintController extends Controller
                 'subject' => $request->subject,
                 'description' => $request->description,
                 'priority' => $request->priority,
-                'assigned_to' => $request->assigned_to,
                 'status' => 'Open',
+                'assigned_to' => $assignedTo,
+                'assigner_id' => $assignerId,
+                'assigner_name' => $assignerName,
+                'assignee_id' => $assigneeId,
+                'assignee_name' => $assigneeName,
             ]);
 
             return response()->json([
@@ -104,6 +168,24 @@ class ComplaintController extends Controller
         }
     }
 
+    public function show($id)
+    {
+        try {
+            $complaint = Complaint::findOrFail($id);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Complaint details fetched successfully',
+                'data' => $complaint
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch complaint',
+                'error' => $e->getMessage()
+            ], 404);
+        }
+    }
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -111,17 +193,50 @@ class ComplaintController extends Controller
             'resolution' => 'nullable|string',
             'priority' => 'sometimes|required|string',
             'assigned_to' => 'nullable|string',
+            'assignee_id' => 'nullable|exists:users,id',
+            'complainant_name' => 'sometimes|required|string',
+            'complainant_type' => 'sometimes|required|string',
+            'branch_name' => 'sometimes|required|string',
+            'category' => 'sometimes|required|string',
+            'subject' => 'sometimes|required|string',
+            'description' => 'sometimes|required|string',
         ]);
 
         try {
             $complaint = Complaint::findOrFail($id);
+            $data = $request->only([
+                'status', 'resolution', 'priority', 
+                'complainant_name', 'complainant_type', 
+                'branch_name', 'category', 'subject', 'description'
+            ]);
 
-            $complaint->update($request->only([
-                'status', 
-                'resolution', 
-                'priority', 
-                'assigned_to'
-            ]));
+            // Handle Assignment Update
+            if ($request->has('assignee_id')) {
+                $assigneeId = $request->assignee_id;
+                $data['assignee_id'] = $assigneeId;
+                
+                if ($assigneeId) {
+                    $u = User::with('staff')->find($assigneeId);
+                    if ($u) {
+                        $name = $u->staff ? $u->staff->full_name : ($u->full_name ?? $u->user_name);
+                        $data['assignee_name'] = "{$name} ({$u->user_name})";
+                        // Auto-update legacy field if not explicitly provided
+                        if (!$request->has('assigned_to')) {
+                            $data['assigned_to'] = $data['assignee_name'];
+                        }
+                    }
+                } else {
+                    // If clearing assignee
+                    $data['assignee_name'] = null;
+                }
+            }
+
+            // Always allow manual override of legacy assigned_to if provided
+            if ($request->has('assigned_to')) {
+                $data['assigned_to'] = $request->assigned_to;
+            }
+
+            $complaint->update($data);
 
             return response()->json([
                 'status' => 'success',

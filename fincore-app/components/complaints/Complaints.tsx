@@ -15,6 +15,7 @@ export default function Complaints() {
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [viewingComplaint, setViewingComplaint] = useState<Complaint | null>(null);
+    const [editingComplaint, setEditingComplaint] = useState<Complaint | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
@@ -67,14 +68,24 @@ export default function Complaints() {
 
     const handleCreateComplaint = async (formData: ComplaintFormData) => {
         try {
-            const newComplaint = await complaintService.createComplaint(formData);
-            if (newComplaint) {
-                fetchComplaints();
-                setShowModal(false);
-                toast.success('Complaint created successfully');
+            if (editingComplaint) {
+                const success = await complaintService.updateComplaint(editingComplaint.id, formData);
+                if (success) {
+                    fetchComplaints();
+                    setEditingComplaint(null);
+                    setShowModal(false);
+                    toast.success('Complaint updated successfully');
+                }
+            } else {
+                const newComplaint = await complaintService.createComplaint(formData);
+                if (newComplaint) {
+                    fetchComplaints();
+                    setShowModal(false);
+                    toast.success('Complaint created successfully');
+                }
             }
         } catch (error) {
-            toast.error('Failed to create complaint');
+            toast.error(editingComplaint ? 'Failed to update complaint' : 'Failed to create complaint');
         }
     };
 
@@ -183,6 +194,10 @@ export default function Complaints() {
                 <ComplaintsTable
                     complaints={complaints}
                     onView={setViewingComplaint}
+                    onEdit={(complaint) => {
+                        setEditingComplaint(complaint);
+                        setShowModal(true);
+                    }}
                 />
 
                 <Pagination
@@ -198,7 +213,11 @@ export default function Complaints() {
             {/* Modals */}
             {showModal && (
                 <NewComplaintModal
-                    onClose={() => setShowModal(false)}
+                    initialData={editingComplaint || undefined}
+                    onClose={() => {
+                        setShowModal(false);
+                        setEditingComplaint(null);
+                    }}
                     onSubmit={handleCreateComplaint}
                 />
             )}
