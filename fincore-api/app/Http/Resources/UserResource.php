@@ -36,6 +36,7 @@ class UserResource extends JsonResource
             'has_two_factor' => $this->has_two_factor,
             'two_factor_confirmed_at' => $this->two_factor_confirmed_at,
             'locked_until' => $this->locked_until,
+            'role_name' => $this->roles->first()?->display_name ?? 'Staff',
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at,
@@ -46,10 +47,16 @@ class UserResource extends JsonResource
                 'name' => $this->staff->branch->branch_name,
             ] : null,
             'branch_id' => $this->staff ? $this->staff->branch_id : null,
+            'staff_id' => $this->user_name,
+            
+            // Contact & Info Fallbacks (from staff if staffDetail not loaded)
+            'phone' => $this->staffDetail ? $this->staffDetail->phone : ($this->staff ? $this->staff->contact_no : null),
+            'address' => $this->staffDetail ? $this->staffDetail->address : ($this->staff ? $this->staff->address : null),
             
             // Computed attributes
             'initials' => $this->initials,
             'full_name' => $this->full_name,
+            'display_name' => $this->user_name . ' - ' . ($this->staff ? $this->staff->full_name : $this->user_name),
             
             // Today's session data for manager actions
             'today_session' => $todaySession ? [

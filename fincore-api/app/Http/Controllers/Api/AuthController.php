@@ -118,8 +118,8 @@ class AuthController extends BaseController
                 $request->userAgent()
             );
 
-            // Load roles and permissions
-            $user->load(['roles.permissions', 'permissions']);
+            // Load roles, permissions and staff details
+            $user->load(['roles.permissions', 'permissions', 'staff.branch', 'staffDetail']);
 
             // Get role and permission data
             $roles = $user->roles->map(function ($role) {
@@ -182,8 +182,8 @@ class AuthController extends BaseController
             return $this->errorResponse(4010, 'Session expired. Please login again', 401);
         }
 
-        // Load roles and permissions
-        $user->load(['roles.permissions', 'permissions']);
+        // Load roles, permissions and staff details
+        $user->load(['roles.permissions', 'permissions', 'staff.branch', 'staffDetail']);
 
         // Get role and permission data
         $roles = $user->roles->map(function ($role) {
@@ -210,7 +210,7 @@ class AuthController extends BaseController
             'statusCode' => 2000,
             'message' => 'Profile fetched successfully',
             'data' => [
-                'user' => $user,
+                'user' => new \App\Http\Resources\UserResource($user),
                 'roles' => $roles,
                 'permissions' => $permissions,
             ]
@@ -283,6 +283,33 @@ class AuthController extends BaseController
                     'status' => $session->status,
                 ] : null,
             ]
+        ], 200);
+    }
+
+    /**
+     * Change authenticated user's password
+     */
+    public function changePassword(\App\Http\Requests\User\ChangePasswordRequest $request)
+    {
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return $this->errorResponse(4000, 'Current password is incorrect', 400);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->new_password)
+        ]);
+
+        // Log activity
+        activity()
+            ->causedBy($user)
+            ->performedOn($user)
+            ->log('Password changed by user');
+
+        return response()->json([
+            'statusCode' => 2000,
+            'message' => 'Password changed successfully'
         ], 200);
     }
 
