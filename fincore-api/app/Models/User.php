@@ -94,7 +94,7 @@ class User extends Authenticatable
     // Attributes
     public function getFullNameAttribute()
     {
-        return $this->user_name;
+        return $this->staff ? $this->staff->full_name : $this->user_name;
     }
 
     public function getInitialsAttribute()
