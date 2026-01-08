@@ -19,6 +19,7 @@ export type Page =
     | 'shareholders'
     | 'complaints' | 'system-config' | 'documents' | 'public-website' | 'center-requests'
     | 'receipt-rejections' | 'salary-approval' | 'loan-payment-approval'
+    | 'profile'
     | string;
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const { isDarkMode } = useTheme();
 
-    const [user, setUser] = useState<{ name: string; role: string; branch: string } | null>(null);
+    const [user, setUser] = useState<{ name: string; role: string; role_name?: string; branch: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -67,8 +68,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
                     setUser({
                         name: currentUser.name,
-                        role: userRole || 'Staff',
-                        branch: 'Head Office'
+                        role: currentUser.role_name || userRole || 'Staff',
+                        branch: currentUser.branch?.name || 'Head Office'
                     });
                 } else {
                     // If token exists but no user data, try to refresh
@@ -78,8 +79,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
                         // ... similar logic to set user ... (simplified for now)
                         setUser({
                             name: refreshedUser.name,
-                            role: (localStorage.getItem('roles') ? JSON.parse(localStorage.getItem('roles')!)[0]?.name : null) || 'Staff',
-                            branch: 'Head Office'
+                            role: refreshedUser.role_name || (localStorage.getItem('roles') ? JSON.parse(localStorage.getItem('roles')!)[0]?.name : null) || 'Staff',
+                            branch: refreshedUser.branch?.name || 'Head Office'
                         });
                     } else {
                         // Refresh failed, probably invalid token
@@ -166,6 +167,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             '/center-requests': 'center-requests',
             '/transaction-approval/salary': 'salary-approval',
             '/transaction-approval/loan-payment': 'loan-payment-approval',
+            '/profile': 'profile',
         };
 
         // Check for exact match first
@@ -220,6 +222,10 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const handleProfileSettings = () => {
+        router.push('/profile');
+    };
+
     return (
         <>
             <ToastContainer
@@ -247,6 +253,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
                         user={user}
                         onLogout={handleLogout}
                         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                        onProfileSettings={handleProfileSettings}
                     />
 
                     <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">

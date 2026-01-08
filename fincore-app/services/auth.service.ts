@@ -6,6 +6,24 @@ export interface User {
     email: string;
     user_name: string;
     role: string;
+    avatar?: string;
+    avatar_url?: string;
+    full_name?: string;
+    display_name?: string;
+    role_name?: string;
+    staff_id?: string;
+    phone?: string;
+    address?: string;
+    branch?: {
+        id: number;
+        name: string;
+    };
+    staff_detail?: {
+        phone?: string;
+        address?: string;
+        designation?: string;
+        department?: string;
+    };
     // Add other user fields as needed
 }
 
@@ -195,6 +213,50 @@ export const authService = {
             }
         } catch (error) {
             console.error('Failed to refresh profile', error);
+        }
+    },
+
+    getProfile: async (): Promise<User> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: getHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to fetch profile');
+            }
+            return data.data.user;
+        } catch (error) {
+            console.error('Get profile error:', error);
+            throw error;
+        }
+    },
+
+    changePassword: async (userId: number, currentPassword: string, newPassword: string, confirmPassword: string): Promise<any> => {
+        try {
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const isSelf = currentUser.id === userId;
+
+            // Use specialized profile endpoint if changing own password
+            const endpoint = isSelf ? `${API_BASE_URL}/auth/change-password` : `${API_BASE_URL}/users/${userId}/change-password`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword,
+                    new_password_confirmation: confirmPassword
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to change password');
+            }
+            return data;
+        } catch (error) {
+            console.error('Change password error:', error);
+            throw error;
         }
     },
 

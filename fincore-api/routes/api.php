@@ -54,7 +54,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Core Auth Details
     Route::prefix('auth')->group(function () {
-        Route::get('me', [AuthController::class, 'me']);
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/change-password', [AuthController::class, 'changePassword']);
+        Route::get('/profile', [AuthController::class, 'profile']);
         Route::get('permissions', [AuthController::class, 'permissions']);
         Route::post('check-permission', [AuthController::class, 'checkPermission']);
         Route::post('check-any-permission', [AuthController::class, 'checkAnyPermission']);

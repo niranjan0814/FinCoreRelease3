@@ -17,7 +17,16 @@ class ChangePasswordRequest extends FormRequest
         $currentUser = auth()->user();
 
         $rules = [
-            'new_password' => 'required|string|min:8|confirmed',
+            'new_password' => [
+                'required',
+                'string',
+                'confirmed',
+                \Illuminate\Validation\Rules\Password::min(8)
+                    ->letters()
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
         ];
 
         // Only require current password if user is changing their own password
