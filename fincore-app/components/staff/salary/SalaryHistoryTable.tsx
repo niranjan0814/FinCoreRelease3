@@ -34,8 +34,9 @@ export const SalaryHistoryTable: React.FC<SalaryHistoryTableProps> = ({ history,
                             className="bg-transparent text-sm font-medium text-gray-600 focus:outline-none"
                         >
                             <option>All Status</option>
-                            <option>Paid</option>
                             <option>Pending</option>
+                            <option>Approved</option>
+                            <option>Disbursed</option>
                         </select>
                     </div>
                     <div className="flex items-center gap-2">
@@ -92,11 +93,14 @@ export const SalaryHistoryTable: React.FC<SalaryHistoryTableProps> = ({ history,
                                     <td className="py-3 px-4 text-sm text-gray-600">Rs. {record.baseSalary.toLocaleString()}</td>
                                     <td className="py-3 px-4 text-sm font-medium text-gray-900">Rs. {record.netPayable.toLocaleString()}</td>
                                     <td className="py-3 px-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Disbursed' || record.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                                            record.status === 'Approved' ? 'bg-blue-100 text-blue-700' :
                                                 record.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
                                                     'bg-gray-100 text-gray-700'
                                             }`}>
-                                            {record.status}
+                                            {record.status === 'Pending' ? 'Pending Approval' :
+                                                record.status === 'Approved' ? 'Approved (Not Disbursed)' :
+                                                    record.status === 'Disbursed' || record.status === 'Paid' ? 'Disbursed' : record.status}
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-right">

@@ -104,6 +104,37 @@ export const financeService = {
         return json.data;
     },
 
+    getSalaryApprovals: async (branchId?: number): Promise<any[]> => {
+        let url = `${API_BASE_URL}/finance/salary-approvals`;
+        if (branchId) url += `?branch_id=${branchId}`;
+
+        const response = await fetch(url, {
+            headers: getHeaders()
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch salary approvals');
+        }
+
+        const json: FinanceApiResponse<any[]> = await response.json();
+        return json.data;
+    },
+
+    approveSalary: async (salaryId: number): Promise<any> => {
+        const response = await fetch(`${API_BASE_URL}/finance/salaries/${salaryId}/approve`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+
+        const json: FinanceApiResponse<any> = await response.json();
+
+        if (!response.ok) {
+            throw new Error(json.message || 'Failed to approve salary');
+        }
+
+        return json.data;
+    },
+
     getPendingSalaries: async (branchId?: number): Promise<any[]> => {
         let url = `${API_BASE_URL}/finance/pending-salaries`;
         if (branchId) url += `?branch_id=${branchId}`;

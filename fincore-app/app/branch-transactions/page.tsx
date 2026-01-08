@@ -7,7 +7,10 @@ import { BranchActivityTable } from '../../components/branch-transactions/Branch
 import { LoanDuePaymentsTable } from '../../components/branch-transactions/LoanDuePaymentsTable';
 import { financeService } from '../../services/finance.service';
 import { BranchExpense } from '../../types/finance.types';
-import { Calendar, Loader2 } from 'lucide-react';
+import { Calendar, Loader2, Building2 } from 'lucide-react';
+import { authService } from '../../services/auth.service';
+import { branchService } from '../../services/branch.service';
+import { Branch } from '../../types/branch.types';
 
 export default function BranchTransactionsPage() {
     const [activeTab, setActiveTab] = useState<'activity' | 'due-payments'>('activity');
@@ -18,11 +21,27 @@ export default function BranchTransactionsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedPeriod, setSelectedPeriod] = useState('day');
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [selectedBranchId, setSelectedBranchId] = useState<number | undefined>(undefined);
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+        setIsAdmin(authService.hasRole('admin') || authService.hasRole('super_admin'));
+        const fetchBranches = async () => {
+            try {
+                const data = await branchService.getBranchesAll();
+                setBranches(data);
+            } catch (error) {
+                console.error('Failed to fetch branches', error);
+            }
+        };
+        fetchBranches();
+    }, []);
 
     const fetchActivities = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await financeService.getBranchTransactions(undefined, selectedDate, selectedPeriod);
+            const data = await financeService.getBranchTransactions(selectedBranchId, selectedDate, selectedPeriod);
             setActivities(data.activities);
             setStats(data.stats);
         } catch (error) {
@@ -30,19 +49,19 @@ export default function BranchTransactionsPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedDate, selectedPeriod]);
+    }, [selectedDate, selectedPeriod, selectedBranchId]);
 
     const fetchLoanDues = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await financeService.getUnsettledReceipts(undefined, collectionStatus);
+            const data = await financeService.getUnsettledReceipts(selectedBranchId, collectionStatus);
             setLoanDues(data);
         } catch (error) {
             console.error('Failed to fetch loan dues', error);
         } finally {
             setLoading(false);
         }
-    }, [collectionStatus]);
+    }, [collectionStatus, selectedBranchId]);
 
     useEffect(() => {
         if (activeTab === 'activity') {
@@ -89,7 +108,7 @@ export default function BranchTransactionsPage() {
                 </div>
             </div>
 
-            <BranchTruncationStats stats={stats} />
+            <BranchTruncationStats stats={stats} period={selectedPeriod} />
 
             {/* Tabs */}
             <div className="space-y-8">
@@ -114,10 +133,31 @@ export default function BranchTransactionsPage() {
                     ))}
                 </div>
 
+                {isAdmin && (
+                    <div className="flex gap-4 items-center bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm animate-in fade-in duration-500">
+                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600">
+                            <Building2 className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 max-w-xs">
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Filter by Branch</label>
+                            <select
+                                value={selectedBranchId || ''}
+                                onChange={(e) => setSelectedBranchId(e.target.value ? parseInt(e.target.value) : undefined)}
+                                className="w-full bg-transparent border-none outline-none font-black text-sm text-gray-900 dark:text-white cursor-pointer"
+                            >
+                                <option value="">All Branches</option>
+                                {branches.map(branch => (
+                                    <option key={branch.id} value={branch.id}>{branch.branch_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
                 <div className="animate-in slide-in-from-bottom-4 duration-500 pb-10">
                     {activeTab === 'activity' ? (
                         <div className="space-y-12">
-                            <BranchActivityForm onSuccess={fetchActivities} />
+                            {!isAdmin && <BranchActivityForm onSuccess={fetchActivities} />}
                             {loading ? (
                                 <div className="flex justify-center py-20">
                                     <Loader2 className="w-10 h-10 animate-spin text-blue-500" />

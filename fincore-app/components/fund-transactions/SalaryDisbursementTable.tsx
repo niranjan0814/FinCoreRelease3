@@ -201,11 +201,11 @@ export function SalaryDisbursementTable({ records, onDisburse, onBulkDisburse }:
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-6 text-gray-500 dark:text-gray-400 text-sm font-medium">{record.staff?.work_info?.designation || record.staff?.role || 'Staff'}</td>
-                                    <td className="px-6 py-6 text-center text-gray-500 dark:text-gray-400 text-sm font-medium">{record.month}</td>
-                                    <td className="px-6 py-6 text-center font-bold text-gray-900 dark:text-gray-100 text-base whitespace-nowrap">LKR {Number(record.net_payable).toLocaleString()}</td>
-                                    <td className="px-6 py-6 text-center">
-                                        <span className={`inline-flex items-center px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider ${record.status === 'Paid'
+                                    <td className="px-8 py-6 text-gray-500 dark:text-gray-400 text-sm font-medium">{record.staff?.work_info?.designation || record.staff?.role || 'Staff'}</td>
+                                    <td className="px-8 py-6 text-center text-gray-500 dark:text-gray-400 text-sm font-medium">{record.month}</td>
+                                    <td className="px-8 py-6 text-center font-bold text-gray-900 dark:text-gray-100 text-base">LKR {Number(record.net_payable).toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className={`inline-flex items-center px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider ${record.status === 'Disbursed'
                                             ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                                             : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
                                             }`}>
@@ -215,8 +215,8 @@ export function SalaryDisbursementTable({ records, onDisburse, onBulkDisburse }:
                                     <td className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400 font-medium">
                                         {record.id}
                                     </td>
-                                    <td className="px-6 py-6 text-right">
-                                        {record.status !== 'Paid' ? (
+                                    <td className="px-8 py-6 text-right">
+                                        {record.status !== 'Disbursed' ? (
                                             <button
                                                 onClick={() => onDisburse(record)}
                                                 className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-blue-100 dark:shadow-none active:scale-95"
@@ -227,7 +227,7 @@ export function SalaryDisbursementTable({ records, onDisburse, onBulkDisburse }:
                                         ) : (
                                             <div className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider px-6 py-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200/50 dark:border-blue-900/50">
                                                 <CheckCircle2 className="w-4 h-4" />
-                                                Paid
+                                                Disbursed
                                             </div>
                                         )}
                                     </td>

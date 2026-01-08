@@ -27,11 +27,11 @@ class CustomerController extends Controller
             'product_type' => 'nullable|string',
             'base_product' => 'nullable|string',
             'pcsu_csu_code' => 'nullable|string',
-            
+
             // Customer Personal Details (required)
             'code_type' => 'required|string|in:' . Customer::CODE_TYPE, // Must be 'NIC'
             'customer_code' => ['required', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/'], // NIC validation without unique (we'll check manually)
-            'gender' => 'required|in:Male,Female,Other',
+            'gender' => 'required|in:Female',
             'title' => 'required|string',
             'full_name' => 'required|string',
             'initials' => 'required|string',
@@ -48,7 +48,7 @@ class CustomerController extends Controller
             'family_members_count' => 'nullable|integer|min:1|max:20',
             'customer_profile_image' => 'nullable|string',
             'monthly_income' => 'nullable|numeric|min:0',
-            
+
             // Customer Address Details (required)
             'address_type' => 'required|string|max:255',
             'address_line_1' => 'required|string|max:255',
@@ -61,7 +61,7 @@ class CustomerController extends Controller
             'gs_division' => 'required|string|max:255',
             'telephone' => ['nullable', 'string', 'regex:/^\d{10}$/'],
             'preferred_address' => 'nullable|boolean',
-            
+
             // Business Details (all optional)
             'ownership_type' => 'nullable|string|in:' . implode(',', Customer::OWNERSHIP_TYPES),
             'register_number' => 'nullable|string',
@@ -128,7 +128,7 @@ class CustomerController extends Controller
         // Extract gender from Sri Lankan NIC
         $nic = $validated['customer_code'];
         $genderFromNIC = $this->extractGenderFromNIC($nic);
-        
+
         if (!$genderFromNIC) {
             return response()->json([
                 'statusCode' => 4220,
@@ -190,7 +190,7 @@ class CustomerController extends Controller
         try {
             // Store NIC in uppercase for consistency
             $validated['customer_code'] = strtoupper($validated['customer_code']);
-            
+
             $customer = Customer::create($validated);
 
             return response()->json([
@@ -243,13 +243,15 @@ class CustomerController extends Controller
         // Add more filters as needed
 
         $query->with(['branch', 'center', 'group', 'loans']);
-        $query->withCount(['loans as active_loans_count' => function ($q) {
-            $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
-        }]);
+        $query->withCount([
+            'loans as active_loans_count' => function ($q) {
+                $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
+            }
+        ]);
         $customers = $query->get();
-        
-        $message = $isFiltered 
-            ? 'Customer filter applied successfully' 
+
+        $message = $isFiltered
+            ? 'Customer filter applied successfully'
             : 'Customer list fetched successfully';
 
         return response()->json([
@@ -265,9 +267,11 @@ class CustomerController extends Controller
     public function show($id)
     {
         $customer = Customer::with(['branch', 'center', 'group', 'loans'])
-            ->withCount(['loans as active_loans_count' => function ($q) {
-                $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
-            }])
+            ->withCount([
+                'loans as active_loans_count' => function ($q) {
+                    $q->where('status', \App\Models\Loan::STATUS_ACTIVE);
+                }
+            ])
             ->find($id);
 
         if (!$customer) {
@@ -309,7 +313,7 @@ class CustomerController extends Controller
             'pcsu_csu_code' => 'nullable|string',
             'code_type' => 'nullable|string|in:' . Customer::CODE_TYPE, // Must be 'NIC' if provided
             'customer_code' => ['nullable', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/'], // NIC validation without unique (we'll check manually)
-            'gender' => 'nullable|in:Male,Female,Other',
+            'gender' => 'nullable|in:Female',
             'title' => 'nullable|string',
             'full_name' => 'nullable|string',
             'initials' => 'nullable|string',
@@ -364,7 +368,7 @@ class CustomerController extends Controller
         // ===== CUSTOM NIC DUPLICATE VALIDATION (for updates) =====
         if (isset($validated['customer_code'])) {
             $nicToCheck = strtoupper($validated['customer_code']);
-            
+
             // Check if another customer (not this one) has the same NIC
             $existingCustomer = Customer::with(['center', 'branch'])
                 ->where('customer_code', $nicToCheck)
@@ -525,15 +529,15 @@ class CustomerController extends Controller
         try {
             $file = $request->file('file');
             $handle = fopen($file->getRealPath(), 'r');
-            
+
             // Handle BOM (Byte Order Mark) fix for Excel created CSVs
             $bom = fread($handle, 3);
             if ($bom != "\xEF\xBB\xBF") {
                 rewind($handle);
             }
-            
+
             $headers = fgetcsv($handle);
-            
+
             if (!$headers) {
                 return response()->json([
                     'statusCode' => 4000,
@@ -542,7 +546,7 @@ class CustomerController extends Controller
             }
 
             // Normalize headers: lowercase, trim, and replace separators with underscores
-            $headers = array_map(function($h) {
+            $headers = array_map(function ($h) {
                 $h = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h); // Remove invisible chars
                 return trim(strtolower(str_replace([' ', '-', '/'], '_', $h)));
             }, $headers);
@@ -550,11 +554,15 @@ class CustomerController extends Controller
             $importCount = 0;
             $errorCount = 0;
             $errors = [];
+            $errorsDetailed = [];
+            $dryRun = filter_var($request->get('dry_run', false), FILTER_VALIDATE_BOOLEAN);
+            $returnErrorsCsv = filter_var($request->get('errors_csv', false), FILTER_VALIDATE_BOOLEAN);
 
             while (($row = fgetcsv($handle)) !== false) {
                 // Skip empty rows
-                if (empty(array_filter($row))) continue;
-                
+                if (empty(array_filter($row)))
+                    continue;
+
                 // Ensure row has same column count as headers
                 // Pad with null if row is shorter
                 if (count($row) < count($headers)) {
@@ -564,13 +572,13 @@ class CustomerController extends Controller
                 }
 
                 $data = array_combine($headers, $row);
-                
+
                 try {
                     // Start building customer data with defaults
                     // We explicitly DO NOT map 'id' from the CSV to the database
                     $customerData = [
                         'code_type' => 'NIC',
-                        'customer_code' => $data['customer_code'] ?? $data['nic'] ?? null,
+                        'customer_code' => isset($data['customer_code']) ? strtoupper($data['customer_code']) : (isset($data['nic']) ? strtoupper($data['nic']) : null),
                         'full_name' => $data['full_name'] ?? null,
                         'gender' => $data['gender'] ?? 'Female',
                         'title' => $data['title'] ?? 'Mrs',
@@ -588,7 +596,7 @@ class CustomerController extends Controller
                         'district' => $data['district'] ?? 'Colombo',
                         'city' => $data['city'] ?? $data['district'] ?? 'Colombo',
                         'gs_division' => $data['gs_division'] ?? 'N/A',
-                        'initials' => 'N/A', 
+                        'initials' => 'N/A',
                         'first_name' => 'N/A',
                         'last_name' => 'N/A',
                     ];
@@ -604,7 +612,7 @@ class CustomerController extends Controller
                     if (isset($data['branch']) && !empty($data['branch'])) {
                         $val = trim($data['branch']);
                         \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Branch for '$val'");
-                        
+
                         $branch = \App\Models\Branch::where('id', $val)
                             ->orWhere('branch_id', $val) // String code in DB
                             ->orWhere('branch_name', 'like', '%' . $val . '%')
@@ -612,62 +620,151 @@ class CustomerController extends Controller
 
                         if ($branch) {
                             $customerData['branch_id'] = $branch->id;
-                             \Illuminate\Support\Facades\Log::info("Row $importCount: Found Branch ID {$branch->id}");
+                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Branch ID {$branch->id}");
                         } else {
                             \Illuminate\Support\Facades\Log::error("Row $importCount: Branch not found for '$val'");
                             throw new \Exception("Could not find Branch matching '$val'");
                         }
                     } else {
-                         \Illuminate\Support\Facades\Log::error("Row $importCount: Branch column missing or empty");
+                        \Illuminate\Support\Facades\Log::error("Row $importCount: Branch column missing or empty");
                     }
 
                     // Center lookup (Try ID, Code, then Name)
                     if (isset($data['center']) && !empty($data['center'])) {
                         $val = trim($data['center']);
-                         \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Center for '$val'");
-                         
+                        \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Center for '$val'");
+
                         $center = \App\Models\Center::where('id', $val)
                             ->orWhere('CSU_id', $val) // String code in DB
                             ->orWhere('center_name', 'like', '%' . $val . '%')
                             ->first();
-                        
+
                         if ($center) {
                             $customerData['center_id'] = $center->id;
-                             \Illuminate\Support\Facades\Log::info("Row $importCount: Found Center ID {$center->id}");
+                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Center ID {$center->id}");
                         } else {
-                             \Illuminate\Support\Facades\Log::error("Row $importCount: Center not found for '$val'");
+                            \Illuminate\Support\Facades\Log::error("Row $importCount: Center not found for '$val'");
                             throw new \Exception("Could not find Center matching '$val'");
                         }
                     } else {
-                         \Illuminate\Support\Facades\Log::error("Row $importCount: Center column missing or empty");
+                        \Illuminate\Support\Facades\Log::error("Row $importCount: Center column missing or empty");
                     }
 
-                    // Validate minimal requirements
                     if (!$customerData['customer_code'] || !$customerData['full_name'] || !isset($customerData['branch_id']) || !isset($customerData['center_id'])) {
                         throw new \Exception("Missing required fields (NIC, Name, Branch or Center)");
                     }
 
-                    // Check for existing NIC
                     if (\App\Models\Customer::where('customer_code', $customerData['customer_code'])->exists()) {
                         throw new \Exception("Customer with NIC " . $customerData['customer_code'] . " already exists");
                     }
 
-                    \App\Models\Customer::create($customerData);
+                    $rules = [
+                        'branch_id' => 'required|exists:branches,id',
+                        'center_id' => 'required|exists:centers,id',
+                        'code_type' => 'required|string|in:' . \App\Models\Customer::CODE_TYPE,
+                        'customer_code' => ['required', 'string', 'regex:/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/'],
+                        'gender' => 'required|in:Female',
+                        'title' => 'required|string',
+                        'full_name' => 'required|string',
+                        'date_of_birth' => 'nullable|date|before:today|after:1900-01-01',
+                        'civil_status' => 'nullable|in:Single,Married,Divorced,Widowed',
+                        'religion' => 'nullable|string|in:' . implode(',', \App\Models\Customer::RELIGIONS),
+                        'mobile_no_1' => ['required', 'string', 'regex:/^\d{10}$/'],
+                        'mobile_no_2' => ['nullable', 'string', 'regex:/^\d{10}$/'],
+                        'status' => 'nullable|in:' . implode(',', \App\Models\Customer::STATUSES),
+                        'monthly_income' => 'nullable|numeric|min:0',
+                        'province' => 'nullable|string',
+                        'district' => 'nullable|string',
+                        'city' => 'nullable|string',
+                    ];
+
+                    $validator = \Illuminate\Support\Facades\Validator::make($customerData, $rules);
+                    if ($validator->fails()) {
+                        $msg = collect($validator->errors()->toArray())->map(function ($arr, $field) {
+                            return $field . ': ' . implode('; ', $arr); })->implode(' | ');
+                        throw new \Exception($msg);
+                    }
+
+                    if ($customerData['date_of_birth']) {
+                        $dob = new \DateTime($customerData['date_of_birth']);
+                        $age = $dob->diff(new \DateTime('today'))->y;
+                        if ($age < \App\Models\Customer::MIN_AGE || $age > \App\Models\Customer::MAX_AGE) {
+                            throw new \Exception('Invalid age based on date_of_birth');
+                        }
+                    }
+
+                    if (!$dryRun) {
+                        \App\Models\Customer::create($customerData);
+                    }
                     $importCount++;
                 } catch (\Exception $e) {
                     $errorCount++;
                     $errors[] = "Row " . ($importCount + $errorCount + 1) . ": " . $e->getMessage();
+                    $errorsDetailed[] = [
+                        'row' => ($importCount + $errorCount + 1),
+                        'error' => $e->getMessage()
+                    ];
                 }
             }
             fclose($handle);
 
+            if ($returnErrorsCsv && $errorCount > 0) {
+                $headersOut = [
+                    "Content-type" => "text/csv",
+                    "Content-Disposition" => "attachment; filename=customer_import_errors_" . date('Y-m-d_His') . ".csv",
+                    "Pragma" => "no-cache",
+                    "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+                    "Expires" => "0"
+                ];
+                $callback = function () use ($errorsDetailed) {
+                    $fileOut = fopen('php://output', 'w');
+                    fputcsv($fileOut, ['Row', 'Error']);
+                    foreach ($errorsDetailed as $err) {
+                        fputcsv($fileOut, [$err['row'], $err['error']]);
+                    }
+                    fclose($fileOut);
+                };
+                return response()->stream($callback, 200, $headersOut);
+            }
+
+            $allFailed = ($importCount === 0 && $errorCount > 0);
+            $partialSuccess = ($importCount > 0 && $errorCount > 0);
+            $allSuccess = ($importCount > 0 && $errorCount === 0);
+
+            if ($allFailed) {
+                return response()->json([
+                    'statusCode' => 4225,
+                    'message' => ($dryRun ? "Dry-run failed: " : "Import failed: ") . "$importCount processed, $errorCount failed.",
+                    'data' => [
+                        'processed' => $importCount,
+                        'failed' => $errorCount,
+                        'dry_run' => $dryRun,
+                        'errors' => array_slice($errors, 0, 50)
+                    ]
+                ], 422);
+            }
+
+            if ($partialSuccess) {
+                return response()->json([
+                    'statusCode' => 2001,
+                    'message' => ($dryRun ? "Dry-run partially completed: " : "Import partially completed: ") . "$importCount processed, $errorCount failed.",
+                    'data' => [
+                        'processed' => $importCount,
+                        'failed' => $errorCount,
+                        'dry_run' => $dryRun,
+                        'errors' => array_slice($errors, 0, 50)
+                    ]
+                ], 200);
+            }
+
             return response()->json([
                 'statusCode' => 2000,
-                'message' => "Import completed: $importCount imported, $errorCount failed.",
+                'message' => ($dryRun ? "Dry-run completed successfully: " : "Import completed successfully: ") . "$importCount processed, $errorCount failed.",
                 'data' => [
-                    'imported' => $importCount,
+                    'processed' => $importCount,
                     'failed' => $errorCount,
-                    'errors' => array_slice($errors, 0, 10) 
+                    'dry_run' => $dryRun,
+                    'errors' => []
                 ]
             ], 200);
 
@@ -689,7 +786,7 @@ class CustomerController extends Controller
     {
         try {
             $customers = Customer::with(['branch', 'center', 'group'])->get();
-            
+
             $headers = [
                 "Content-type" => "text/csv",
                 "Content-Disposition" => "attachment; filename=customers_" . date('Y-m-d_His') . ".csv",
@@ -700,12 +797,26 @@ class CustomerController extends Controller
 
             // These headers match the 'import' expectation
             $columns = [
-                'ID', 'Customer Code', 'Full Name', 'NIC', 'Mobile 1', 'Mobile 2', 
-                'Gender', 'Title', 'Date of Birth', 'Address', 'City', 'District', 
-                'Branch', 'Center', 'Group', 'Status', 'Monthly Income'
+                'ID',
+                'Customer Code',
+                'Full Name',
+                'NIC',
+                'Mobile 1',
+                'Mobile 2',
+                'Gender',
+                'Title',
+                'Date of Birth',
+                'Address',
+                'City',
+                'District',
+                'Branch',
+                'Center',
+                'Group',
+                'Status',
+                'Monthly Income'
             ];
 
-            $callback = function() use ($customers, $columns) {
+            $callback = function () use ($customers, $columns) {
                 $file = fopen('php://output', 'w');
                 fputcsv($file, $columns);
 
@@ -844,11 +955,11 @@ class CustomerController extends Controller
     private function extractGenderFromNIC($nic)
     {
         $nic = strtoupper(trim($nic));
-        
+
         // Old NIC format (9 digits + V)
         if (preg_match('/^(\d{9})V$/', $nic, $matches)) {
             $dayValue = intval(substr($matches[1], 2, 3));
-            
+
             // If day value > 500, it's female
             if ($dayValue > 500) {
                 return 'Female';
@@ -856,11 +967,11 @@ class CustomerController extends Controller
                 return 'Male';
             }
         }
-        
+
         // New NIC format (12 digits)
         if (preg_match('/^(\d{12})$/', $nic)) {
             $dayValue = intval(substr($nic, 4, 3));
-            
+
             // If day value > 500, it's female
             if ($dayValue > 500) {
                 return 'Female';
@@ -868,7 +979,7 @@ class CustomerController extends Controller
                 return 'Male';
             }
         }
-        
+
         return null; // Invalid format
     }
 }
