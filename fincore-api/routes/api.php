@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\StaffSessionController;
+use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\CustomerController;
@@ -93,6 +94,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/{id}', [LoanController::class, 'show'])->name('loans.show');
     Route::patch('/loans/{id}/approve', [LoanController::class, 'approve'])->name('loans.approve');
+    Route::post('/loans/{id}/disburse', [LoanController::class, 'disburse'])->name('loans.disburse');
 
     // Loan Product Management
     Route::prefix('loan-products')->group(function () {
@@ -380,5 +382,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Shareholders
         Route::apiResource('shareholders', ShareholderController::class);
+
+        // Finance Transactions
+        Route::prefix('finance')->group(function () {
+            Route::get('/branch-transactions', [FinanceController::class, 'getBranchTransactions']);
+            Route::post('/expenses', [FinanceController::class, 'storeBranchExpense']);
+            Route::get('/unsettled-receipts', [FinanceController::class, 'getUnsettledReceipts']);
+            Route::post('/settle-receipt', [FinanceController::class, 'settleReceipt']);
+            Route::get('/approved-loans', [FinanceController::class, 'getApprovedLoans']);
+        });
     });
 });

@@ -145,10 +145,15 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
         { id: 'collection-summary' as Page, label: 'Collection Summary', icon: <Receipt className="w-4 h-4" />, permission: 'collections.view' }
     ];
 
+    const approvalMenuItems: MenuItem[] = [
+        { id: 'salary-approval' as Page, label: 'Salary Approval', icon: <ShieldCheck className="w-4 h-4" /> },
+        { id: 'loan-payment-approval' as Page, label: 'Loan Payment Approval', icon: <ShieldCheck className="w-4 h-4" /> }
+    ];
+
     const financeMenuItems: MenuItem[] = [
         { id: 'finance' as Page, label: 'Finance Overview', icon: <Wallet className="w-4 h-4" />, permission: 'finance.view' },
-        { id: 'fund-transactions' as Page, label: 'Fund Transactions', icon: <ArrowLeftRight className="w-4 h-4" />, permission: 'finance.transactions' },
-        { id: 'branch-transactions' as Page, label: 'Branch Transactions', icon: <Building2 className="w-4 h-4" />, permission: 'finance.view' }
+        { id: 'fund-transactions' as Page, label: 'Fund Truncation', icon: <ArrowLeftRight className="w-4 h-4" />, permission: 'finance.transactions' },
+        { id: 'branch-transactions' as Page, label: 'Branch Truncation', icon: <Building2 className="w-4 h-4" />, permission: 'finance.view' }
     ];
 
     const toggleMenu = (menuId: string) => {
@@ -458,6 +463,21 @@ export function Sidebar({ currentPage, onNavigate, isOpen, userRole }: SidebarPr
                         </div>
                     )}
                 </button>
+
+                {/* Approvals Section */}
+                <div className="pt-3">
+                    {!isCollapsed && (
+                        <div className="px-3 mb-2">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Approvals</p>
+                        </div>
+                    )}
+                    {renderMenuItem({
+                        id: 'approvals-section' as Page,
+                        label: 'Transaction Approval',
+                        icon: <ShieldCheck className="w-5 h-5" />,
+                        submenu: approvalMenuItems
+                    })}
+                </div>
 
                 {/* Finance Section */}
                 <div className="pt-3">

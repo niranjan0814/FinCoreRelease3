@@ -18,7 +18,7 @@ export type Page =
     | 'investments' | 'staff-management' | 'roles-privileges'
     | 'shareholders'
     | 'complaints' | 'system-config' | 'documents' | 'public-website' | 'center-requests'
-    | 'receipt-rejections'
+    | 'receipt-rejections' | 'salary-approval' | 'loan-payment-approval'
     | string;
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
@@ -164,6 +164,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             '/documents': 'documents',
             '/public-website': 'public-website',
             '/center-requests': 'center-requests',
+            '/transaction-approval/salary': 'salary-approval',
+            '/transaction-approval/loan-payment': 'loan-payment-approval',
         };
 
         // Check for exact match first
@@ -199,6 +201,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
             'due-list': '/collections/due-list',
             'collections': '/collections',
             'collection-summary': '/collections/summary',
+            'salary-approval': '/transaction-approval/salary',
+            'loan-payment-approval': '/transaction-approval/loan-payment',
         };
 
         const path = routeMap[pageId as string] || `/${pageId}`;
