@@ -251,4 +251,93 @@ class FinanceController extends Controller
             'data' => $loans
         ]);
     }
+
+    /**
+     * Get salaries that are processed but not yet disbursed.
+     */
+    public function getPendingSalaries(Request $request)
+    {
+        $branchId = $request->query('branch_id');
+
+        $query = \App\Models\SalaryPayment::with(['staff.branch'])
+            ->where('status', 'Pending');
+
+        if ($branchId) {
+            $query->whereHas('staff', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
+
+        $salaries = $query->latest()->get();
+
+        return response()->json([
+            'statusCode' => 2000,
+            'message' => 'Pending salaries fetched successfully',
+            'data' => $salaries
+        ]);
+    }
+
+    /**
+     * Disburse a salary payment.
+     */
+    public function disburseSalary(Request $request, $id)
+    {
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $salary = \App\Models\SalaryPayment::with(['staff.branch'])->findOrFail($id);
+
+                if ($salary->status !== 'Pending') {
+                    return response()->json([
+                        'statusCode' => 4220,
+                        'message' => 'Only pending salaries can be disbursed.'
+                    ], 422);
+                }
+
+                $user = auth()->user();
+
+                // 1. Update Status
+                $salary->update([
+                    'status' => 'Paid',
+                    'payment_date' => now()
+                ]);
+
+                // 2. Create Transaction (Outflow)
+                $transaction = Transaction::create([
+                    'staff_id' => $user->user_name,
+                    'amount' => $salary->net_payable,
+                    'type' => 'outflow',
+                    'category' => 'salary_payment',
+                    'status' => 'success',
+                    'related_id' => $salary->id,
+                    'timestamp' => now(),
+                    'description' => "Salary Payout: {$salary->month} for {$salary->staff->full_name}"
+                ]);
+
+                // 3. Record in BranchExpense
+                if ($salary->staff && $salary->staff->branch_id) {
+                    BranchExpense::create([
+                        'branch_id' => $salary->staff->branch_id,
+                        'transaction_id' => $transaction->id,
+                        'type' => 'outflow',
+                        'date' => now()->toDateString(),
+                        'expense_type' => 'Salary Payment',
+                        'medium' => $salary->payment_method ?: 'Cash',
+                        'description' => "Salary Disbursement for {$salary->staff->full_name} ({$salary->month})",
+                        'amount' => $salary->net_payable,
+                    ]);
+                }
+
+                return response()->json([
+                    'statusCode' => 2000,
+                    'message' => 'Salary disbursed successfully',
+                    'data' => $salary
+                ]);
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'statusCode' => 5000,
+                'message' => 'Failed to disburse salary: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

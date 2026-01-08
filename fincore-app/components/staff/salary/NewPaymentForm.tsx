@@ -4,6 +4,7 @@ import { staffService } from '@/services/staff.service';
 import { branchService } from '@/services/branch.service';
 import { salaryService } from '../../../services/salary.service';
 import { toast } from 'react-toastify';
+import { SalaryReviewModal } from './SalaryReviewModal';
 
 interface NewPaymentFormProps {
     onBack: () => void;
@@ -25,6 +26,8 @@ export const NewPaymentForm: React.FC<NewPaymentFormProps> = ({ onBack, onSubmit
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('Active');
+    const [showReview, setShowReview] = useState(false);
+    const [reviewData, setReviewData] = useState<any>(null);
 
     const [formData, setFormData] = useState({
         month: 'January 2026',
@@ -53,6 +56,26 @@ export const NewPaymentForm: React.FC<NewPaymentFormProps> = ({ onBack, onSubmit
 
     const updateAllowance = (id: string, field: 'label' | 'amount', value: string | number) => {
         setManualAllowances(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
+    };
+
+    const [manualDeductions, setManualDeductions] = useState<{ id: string; label: string; amount: number }[]>([
+        { id: Math.random().toString(36).substr(2, 9), label: 'Tax/EPF', amount: 0 }
+    ]);
+
+    const addDeduction = () => {
+        setManualDeductions(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), label: '', amount: 0 }]);
+    };
+
+    const removeDeduction = (id: string) => {
+        if (manualDeductions.length > 1) {
+            setManualDeductions(prev => prev.filter(a => a.id !== id));
+        } else {
+            setManualDeductions([{ id: Math.random().toString(36).substr(2, 9), label: '', amount: 0 }]);
+        }
+    };
+
+    const updateDeduction = (id: string, field: 'label' | 'amount', value: string | number) => {
+        setManualDeductions(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
     };
 
     const [alreadyPaidIds, setAlreadyPaidIds] = useState<string[]>([]);
@@ -199,20 +222,32 @@ export const NewPaymentForm: React.FC<NewPaymentFormProps> = ({ onBack, onSubmit
 
     const selectedStaffDetails = employees.filter(emp => selectedStaffIds.includes(emp.id));
     const totalAllowances = manualAllowances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
-    const netPayable = (Number(formData.baseSalary) || 0) + totalAllowances - (Number(formData.deductions) || 0);
+    const totalDeductions = manualDeductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const netPayable = (Number(formData.baseSalary) || 0) + totalAllowances - totalDeductions;
 
     const handleSubmit = () => {
         if (selectedStaffIds.length === 0) {
             toast.error("Please select at least one employee");
             return;
         }
-        onSubmit({
+
+        const payload = {
             ...formData,
             allowances: totalAllowances,
             allowances_detail: manualAllowances,
+            deductions: totalDeductions,
+            deductions_detail: manualDeductions,
             employeeIds: selectedStaffIds,
             salaryMode
-        });
+        };
+
+        setReviewData(payload);
+        setShowReview(true);
+    };
+
+    const handleFinalSubmit = () => {
+        onSubmit(reviewData);
+        setShowReview(false);
     };
 
     const filteredForSearch = employees.filter(emp =>
@@ -829,17 +864,52 @@ export const NewPaymentForm: React.FC<NewPaymentFormProps> = ({ onBack, onSubmit
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1">Deductions</label>
-                                <div className="relative group focus-within:ring-4 ring-red-500/10 rounded-xl transition-all">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500 font-bold text-xs">-</span>
-                                    <input
-                                        type="number"
-                                        value={formData.deductions || ''}
-                                        onChange={e => setFormData({ ...formData, deductions: Number(e.target.value) })}
-                                        className="w-full pl-11 pr-4 py-3.5 bg-red-50/10 dark:bg-red-900/10 hover:bg-red-50/20 border border-red-100 dark:border-red-800/30 rounded-xl focus:border-red-400 outline-none transition-all text-sm font-bold text-red-600 dark:text-red-400"
-                                        placeholder="0.00"
-                                    />
+                            <div className="col-span-1 md:col-span-2 bg-red-50/30 dark:bg-red-900/10 p-6 rounded-2xl border border-dashed border-red-100 dark:border-red-900/30 space-y-5">
+                                <div className="flex justify-between items-center group/title">
+                                    <label className="flex items-center gap-2 text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-widest">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                        Deductions Breakdown
+                                    </label>
+                                    <button
+                                        onClick={addDeduction}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 text-red-600 hover:text-red-700 dark:text-red-400 rounded-lg text-[10px] font-black hover:shadow-md transition-all border border-gray-200 dark:border-gray-700"
+                                    >
+                                        <Plus className="w-3 h-3" />
+                                        ADD ITEM
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {manualDeductions.map((deduction) => (
+                                        <div key={deduction.id} className="flex gap-4 animate-in fade-in slide-in-from-left-2 duration-300 group">
+                                            <div className="flex-[2] relative">
+                                                <input
+                                                    type="text"
+                                                    value={deduction.label}
+                                                    onChange={e => updateDeduction(deduction.id, 'label', e.target.value)}
+                                                    placeholder="Description (e.g. Tax/EPF)"
+                                                    className="w-full pl-4 pr-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="flex-1 relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-500 font-bold text-xs">-</span>
+                                                <input
+                                                    type="number"
+                                                    value={deduction.amount || ''}
+                                                    onChange={e => updateDeduction(deduction.id, 'amount', Number(e.target.value))}
+                                                    className="w-full pl-7 pr-4 py-3 bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-800/30 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all text-sm font-bold text-red-700 dark:text-red-400"
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => removeDeduction(deduction.id)}
+                                                className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100 scale-90 hover:scale-100"
+                                                title="Remove"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -970,6 +1040,15 @@ export const NewPaymentForm: React.FC<NewPaymentFormProps> = ({ onBack, onSubmit
                     </div>
                 </div>
             </div>
+            {showReview && reviewData && (
+                <SalaryReviewModal
+                    isOpen={showReview}
+                    onClose={() => setShowReview(false)}
+                    onConfirm={handleFinalSubmit}
+                    data={reviewData}
+                    employeeDetails={selectedStaffDetails}
+                />
+            )}
         </div>
     );
 };
