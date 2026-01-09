@@ -1,14 +1,4 @@
-import { fetchWithAuth } from './api.client';
 import { API_BASE_URL, getHeaders } from './api.config';
-// ... existing imports ...
-
-// ... inside service object ...
-const response = await fetchWithAuth(`${API_BASE_URL}/sessions/current`, {
-    method: 'GET',
-    // headers are handled by fetchWithAuth
-});
-// ... and so on for all fetch calls
-
 
 /**
  * Backend logout types (use these when calling the API)
