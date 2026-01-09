@@ -1,0 +1,2 @@
+product,center,customer,group,witness1,witness2,request_amount,approved_amount,terms,interest_rate,guardian_nic,guardian_name,guardian_address,guardian_phone,guarantor1_name,guarantor1_nic,guarantor2_name,guarantor2_nic,status
+gold,CSU0002,200254311012,GRP jaff,ST0001,ST0003,100000,100000,12,20,200222700201,Jane Guardian,123 Main St,0771112233,John Guarantor,123456789V,Jane Guarantor2,987654321V,Completed

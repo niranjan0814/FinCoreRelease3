@@ -308,6 +308,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Collections
         Route::get('/collections/due', [\App\Http\Controllers\Api\CollectionController::class, 'getDuePayments'])->middleware('permission:collections.view');
         Route::get('/collections/export', [\App\Http\Controllers\Api\CollectionController::class, 'export'])->middleware('permission:collections.view');
+        Route::post('/collections/import', [\App\Http\Controllers\Api\CollectionController::class, 'import'])->middleware('permission:collections.import');
         Route::post('/collections/collect', [\App\Http\Controllers\Api\CollectionController::class, 'collectPayment'])->middleware('permission:receipts.create');
         Route::get('/collections/history/{loanId}', [\App\Http\Controllers\Api\CollectionController::class, 'getCollectionHistory'])->middleware('permission:collections.view');
         Route::post('/collections/loans/{id}/extend-due-date', [\App\Http\Controllers\Api\CollectionController::class, 'extendDueDate'])->middleware('permission:collections.view');

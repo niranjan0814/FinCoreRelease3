@@ -7,6 +7,7 @@ use App\Models\Loan;
 use App\Services\LoanDueDateService;
 use Illuminate\Http\Request;
 use App\Notifications\LoanStatusNotification;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class LoanController extends Controller
@@ -53,6 +54,7 @@ class LoanController extends Controller
                     'stats' => [
                         'total_count' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->count(),
                         'active_count' => Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_APPROVED])->count(),
+                        'completed_count' => Loan::where('status', Loan::STATUS_COMPLETED)->count(),
                         'total_disbursed' => Loan::where('status', Loan::STATUS_ACTIVE)->sum('approved_amount'),
                         'total_outstanding' => Loan::where('status', Loan::STATUS_ACTIVE)->sum('outstanding_amount'),
                     ]
@@ -533,19 +535,240 @@ class LoanController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:csv,txt'
+        ], [
+            'file.mimes' => 'Only CSV or TXT files are allowed. Excel files are not supported directly.'
         ]);
 
+        // Disable foreign key checks for bulk import (TEMPORARILY DISABLED FOR TESTING)
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
         try {
-            // Placeholder logic
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Loans imported successfully'
-            ], 200);
+            $file = $request->file('file');
+            $path = $file->getRealPath();
+            
+            if (!file_exists($path)) {
+                 throw new \Exception("File not found at path: $path");
+            }
+
+            // Detect line endings and fix if necessary (Mac legacy vs Unix vs Windows)
+            if (!ini_get("auto_detect_line_endings")) {
+                ini_set("auto_detect_line_endings", '1');
+            }
+
+            $handle = fopen($path, 'r');
+            // Check BOM
+            $bom = fread($handle, 3);
+            if ($bom != "\xEF\xBB\xBF") rewind($handle);
+
+            // Find headers - skip empty lines at the beginning
+            $headers = null;
+            while (($firstRow = fgetcsv($handle)) !== false) {
+                if (!empty(array_filter($firstRow))) {
+                    $headers = $firstRow;
+                    break;
+                }
+            }
+
+            if (!$headers) {
+                // Re-enable foreign key checks before early return (TEMPORARILY DISABLED FOR TESTING)
+                // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                fclose($handle);
+                return response()->json(['status' => 'error', 'message' => 'The uploaded file appears to be empty or not a valid CSV.'], 400);
+            }
+
+            $headers = array_map(function ($h) {
+                // Remove invisible chars (0-31, 127-255) to fix header mismatch issues
+                $clean = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $h);
+                return trim(strtolower(str_replace([' ', '-', '/'], '_', $clean)));
+            }, $headers);
+
+            $importCount = 0;
+            $errorCount = 0;
+            $errors = [];
+
+            while (($row = fgetcsv($handle)) !== false) {
+                // Skip empty rows
+                if (empty(array_filter($row))) continue;
+
+                // Pad or Trim row
+                if (count($row) < count($headers)) {
+                    $row = array_pad($row, count($headers), null);
+                } else if (count($row) > count($headers)) {
+                    $row = array_slice($row, 0, count($headers));
+                }
+
+                $data = array_combine($headers, $row);
+                $rowNum = $importCount + $errorCount + 2; 
+
+                // Process Row Transactionally
+                // If one row fails, we log error and continue (Partial Import) OR fail all? 
+                // Let's do Partial Import to allow valid rows to succeed.
+                DB::beginTransaction();
+
+                try {
+                    $loanData = [];
+
+                    // 1. Product Lookup
+                    if (empty($data['product'])) throw new \Exception("Product name required");
+                    $product = \App\Models\LoanProduct::where('product_name', trim($data['product']))->first();
+                    if (!$product) throw new \Exception("Product '" . $data['product'] . "' not found");
+                    $loanData['product_id'] = $product->id;
+
+                    // 2. Center Lookup
+                    if (empty($data['center'])) throw new \Exception("Center code required");
+                    $centerVal = trim($data['center']);
+                    $center = \App\Models\Center::where('CSU_id', $centerVal)
+                        ->orWhere('id', $centerVal)
+                        ->orWhere('center_name', 'like', "%{$centerVal}%")
+                        ->first();
+                    if (!$center) throw new \Exception("Center '$centerVal' not found");
+                    $loanData['CSU_id'] = $center->id;
+
+                    // 3. Customer Lookup
+                    if (empty($data['customer'])) throw new \Exception("Customer NIC required");
+                    $nic = trim($data['customer']);
+                    $customer = \App\Models\Customer::where('customer_code', $nic)->first();
+                    if (!$customer) throw new \Exception("Customer '$nic' not found");
+                    $loanData['customer_id'] = $customer->id;
+
+                    // 4. Duplicate Check
+                    $existingLoan = Loan::where('customer_id', $customer->id)
+                        ->where('product_id', $product->id)
+                        ->whereIn('status', Loan::ACTIVE_STATUSES)
+                        ->exists();
+                    if ($existingLoan) throw new \Exception("Customer asking for '{$product->product_name}' already has active loan");
+
+                    // 5. Group Lookup
+                    if (!empty($data['group'])) {
+                        $grpVal = trim($data['group']);
+                        $group = \App\Models\Group::where('center_id', $center->id)
+                            ->where(function($q) use ($grpVal) {
+                                $q->where('group_name', $grpVal)->orWhere('id', $grpVal);
+                            })->first();
+                        if ($group) $loanData['group_id'] = $group->id;
+                    }
+
+                    // 6. Witnesses (Staff Codes)
+                    $w1Code = trim($data['witness1'] ?? '');
+                    $w2Code = trim($data['witness2'] ?? '');
+
+                    if (!$w1Code || !$w2Code) throw new \Exception("Witnesses required");
+                    if ($w1Code === $w2Code) throw new \Exception("Witnesses must be different");
+
+                    $staff1 = \App\Models\Staff::where('staff_id', $w1Code)->first();
+                    $staff2 = \App\Models\Staff::where('staff_id', $w2Code)->first();
+
+                    if (!$staff1) throw new \Exception("Witness 1 ($w1Code) not found");
+                    if (!$staff2) throw new \Exception("Witness 2 ($w2Code) not found");
+
+                    $loanData['witness1_id'] = $staff1->id;
+                    $loanData['witness2_id'] = $staff2->id;
+
+                    // 7. Auto-Generate Loan ID if missing
+                    $loanId = !empty($data['loan_id']) ? trim($data['loan_id']) : null;
+                    if ($loanId && Loan::where('loan_id', $loanId)->exists()) {
+                         throw new \Exception("Loan ID '$loanId' duplicates existing loan");
+                    }
+                    if (!$loanId) {
+                         $loanId = 'LN-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(2)));
+                    }
+                    $loanData['loan_id'] = $loanId;
+
+                    // 8. Financials
+                    $loanData['request_amount'] = floatval($data['request_amount'] ?? 0);
+                    $loanData['approved_amount'] = floatval($data['approved_amount'] ?? 0);
+                    $loanData['outstanding_amount'] = $loanData['approved_amount'];
+                    $loanData['terms'] = intval($data['terms'] ?? 12);
+                    $loanData['interest_rate'] = floatval($data['interest_rate'] ?? 0);
+
+                    // JSON Details
+                    $loanData['g1_details'] = ['name' => $data['guarantor1_name'] ?? 'N/A', 'nic' => $data['guarantor1_nic'] ?? 'N/A'];
+                    $loanData['g2_details'] = ['name' => $data['guarantor2_name'] ?? 'N/A', 'nic' => $data['guarantor2_nic'] ?? 'N/A'];
+                    $loanData['w1_details'] = ['staff_id' => $staff1->id, 'name' => $staff1->full_name];
+                    $loanData['w2_details'] = ['staff_id' => $staff2->id, 'name' => $staff2->full_name];
+
+                    $loanData['guardian_nic'] = $data['guardian_nic'] ?? 'N/A';
+                    $loanData['guardian_name'] = $data['guardian_name'] ?? 'N/A';
+                    $loanData['guardian_address'] = $data['guardian_address'] ?? 'N/A';
+                    $loanData['guardian_phone'] = $data['guardian_phone'] ?? 'N/A';
+                    
+                    $loanData['service_charge'] = floatval($data['service_charge'] ?? 0);
+                    $loanData['document_charge'] = floatval($data['document_charge'] ?? 0);
+                    $loanData['loan_step'] = $data['loan_step'] ?? null;
+                    
+                    // Support status from CSV (default: pending_1st)
+                    $csvStatus = strtolower(trim($data['status'] ?? ''));
+                    if ($csvStatus === 'active') {
+                        $loanData['status'] = Loan::STATUS_ACTIVE;
+                        $loanData['approval_level'] = 2; // Fully approved
+                    } elseif ($csvStatus === 'approved') {
+                        $loanData['status'] = Loan::STATUS_APPROVED;
+                        $loanData['approval_level'] = 2;
+                    } elseif ($csvStatus === 'closed' || $csvStatus === 'completed') {
+                        $loanData['status'] = Loan::STATUS_COMPLETED;
+                        $loanData['approval_level'] = 2;
+                        $loanData['outstanding_amount'] = 0; // Completed loans have zero outstanding
+                    } else {
+                        $loanData['status'] = Loan::STATUS_PENDING_1ST;
+                        $loanData['approval_level'] = 0;
+                    }
+                    
+                    $loanData['staff_id'] = auth()->id() ?? 1;
+
+                    $loan = Loan::create($loanData);
+                    
+                    // If status is Active, set up activation fields and create payment record
+                    if ($loan->status === Loan::STATUS_ACTIVE) {
+                        // Calculate rental
+                        $loan->rentel = $this->calculateRental($loan);
+                        
+                        // Set due date fields
+                        $this->setLoanDueDateFields($loan);
+                        
+                        $loan->save();
+                        
+                        // Create initial payment record (ledger entry)
+                        $this->createInitialPaymentRecord($loan);
+                    }
+                    
+                    DB::commit(); // Commit this row
+                    $importCount++;
+
+                } catch (\Exception $e) {
+                    DB::rollBack(); // Rollback this row only
+                    $errorCount++;
+                    $errors[] = "Row $rowNum: " . $e->getMessage();
+                    \Illuminate\Support\Facades\Log::error("Loan Import Row $rowNum Failed: " . $e->getMessage());
+                }
+            }
+
+            fclose($handle);
+
+            // Re-enable foreign key checks after import (TEMPORARILY DISABLED FOR TESTING)
+            // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+            if ($importCount > 0) {
+                 return response()->json([
+                    'status' => 'success',
+                    'message' => "Imported $importCount loans successfully." . ($errorCount > 0 ? " ($errorCount failed)" : ""),
+                    'errors' => $errors
+                ]);
+            } else {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "No loans imported. $errorCount errors found.",
+                    'errors' => $errors
+                ], 422); // Unprocessable Entity
+            }
+
 
         } catch (\Exception $e) {
+            // Re-enable foreign key checks even on failure (TEMPORARILY DISABLED FOR TESTING)
+            // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to import loans: ' . $e->getMessage()
+                'message' => 'Critical Import Failure: ' . $e->getMessage()
             ], 500);
         }
     }

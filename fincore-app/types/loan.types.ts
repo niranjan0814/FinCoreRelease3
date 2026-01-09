@@ -178,6 +178,7 @@ export interface Loan {
 export interface LoanStats {
     total_count: number;
     active_count: number;
+    completed_count: number;
     total_disbursed: number;
     total_outstanding: number;
 }

@@ -48,6 +48,29 @@ export function CollectionSummary() {
         }
     };
 
+    const handleImport = async (file: File) => {
+        try {
+            setIsLoading(true);
+            const result = await collectionSummaryService.importCollections(file);
+
+            if (result.status === 'success') {
+                toast.success(result.message);
+                if (result.errors && result.errors.length > 0) {
+                    console.warn('Import errors:', result.errors);
+                    toast.warning(`Imported with ${result.errors.length} errors. Check console for details.`);
+                }
+                loadData(); // Refresh data
+            } else {
+                toast.error(result.message || 'Import failed');
+            }
+        } catch (error: any) {
+            console.error('Import failed:', error);
+            toast.error(error.message || 'Failed to import collections');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Calculate aggregated stats from branch data using new structure
     const stats: SummaryStats = branchCollections.reduce((acc, curr) => ({
         totalTarget: acc.totalTarget + curr.target,
@@ -80,6 +103,7 @@ export function CollectionSummary() {
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
                 onExport={handleExport}
+                onImport={handleImport}
                 isLoading={isLoading}
             />
 

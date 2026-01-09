@@ -55,6 +55,43 @@ class CollectionSummaryService {
             throw error;
         }
     }
+
+    async importCollections(file: File) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        let token = localStorage.getItem('token');
+        if (token) {
+            token = token.trim().replace(/[\n\r]/g, '');
+        }
+
+        const headers: HeadersInit = {
+            'Accept': 'application/json'
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/collections/import`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to import collections');
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Failed to import collections:', error);
+            throw error;
+        }
+    }
 }
 
 export const collectionSummaryService = new CollectionSummaryService();

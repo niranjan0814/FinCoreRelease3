@@ -102,11 +102,23 @@ export const loanService = {
         const formData = new FormData();
         formData.append('file', file);
 
+        let token = localStorage.getItem('token');
+        // Sanitize token to prevent "The string did not match the expected pattern" (InvalidCharacterError)
+        if (token) {
+            token = token.trim().replace(/[\n\r]/g, '');
+        }
+
+        const headers: HeadersInit = {
+            'Accept': 'application/json'
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${API_BASE_URL}/loans/import`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
+            headers: headers,
             body: formData
         });
 

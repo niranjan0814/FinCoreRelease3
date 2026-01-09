@@ -1236,4 +1236,221 @@ class CollectionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Import Collections from CSV.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt'
+        ], [
+            'file.mimes' => 'Only CSV or TXT files are allowed.'
+        ]);
+
+        // Disable foreign key checks for bulk import (TEMPORARILY DISABLED FOR TESTING)
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            $file = $request->file('file');
+            $path = $file->getRealPath();
+            
+            if (!file_exists($path)) {
+                throw new \Exception("File not found at path: $path");
+            }
+
+            if (!ini_get("auto_detect_line_endings")) {
+                ini_set("auto_detect_line_endings", '1');
+            }
+
+            $handle = fopen($path, 'r');
+            $bom = fread($handle, 3);
+            if ($bom != "\xEF\xBB\xBF") rewind($handle);
+
+            // Find headers - skip empty lines at the beginning
+            $headers = null;
+            while (($firstRow = fgetcsv($handle)) !== false) {
+                if (!empty(array_filter($firstRow))) {
+                    $headers = $firstRow;
+                    break;
+                }
+            }
+
+            if (!$headers) {
+                // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                fclose($handle);
+                return response()->json(['status' => 'error', 'message' => 'The uploaded file appears to be empty or not a valid CSV.'], 400);
+            }
+
+            $headers = array_map(function ($h) {
+                $h = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h);
+                return trim(strtolower(str_replace([' ', '-', '/'], '_', $h)));
+            }, $headers);
+
+            $importCount = 0;
+            $errorCount = 0;
+            $errors = [];
+            $rowNum = 1;
+
+            while (($row = fgetcsv($handle)) !== false) {
+                $rowNum++;
+                if (empty(array_filter($row))) continue;
+
+                if (count($row) < count($headers)) {
+                    $row = array_pad($row, count($headers), null);
+                } else if (count($row) > count($headers)) {
+                    $row = array_slice($row, 0, count($headers));
+                }
+
+                $data = array_combine($headers, $row);
+
+                DB::beginTransaction();
+                try {
+                    // 1. Find Loan
+                    $contractNo = $data['contract_no'] ?? $data['loan_id'] ?? $data['loan_no'] ?? null;
+                    if (!$contractNo) throw new \Exception("Missing contract_no / loan_id");
+
+                    $loan = Loan::where('loan_id', $contractNo)->first();
+                    if (!$loan) throw new \Exception("Loan '$contractNo' not found");
+
+                    // 2. Staff / Officer Lookup
+                    $officerRef = $data['staff_id'] ?? $data['officer_id'] ?? $data['field_officer'] ?? null;
+                    $staffId = null;
+                    if ($officerRef) {
+                        // Try User table first (integer ID or username)
+                        $user = \App\Models\User::where('id', $officerRef)
+                            ->orWhere('user_name', $officerRef)
+                            ->first();
+                        
+                        if (!$user) {
+                            // Try Staff table lookup
+                            $staff = \App\Models\Staff::where('staff_id', $officerRef)->first();
+                            if ($staff) {
+                                $user = \App\Models\User::where('user_name', $staff->staff_id)->first();
+                            }
+                        }
+                        
+                        if ($user) {
+                            $staffId = $user->id;
+                        }
+                    }
+                    
+                    if (!$staffId) {
+                        $staffId = auth()->id() ?? 1; // Fallback to current user or first user
+                    }
+
+                    // 3. Payment Data
+                    $amount = floatval($data['amount'] ?? $data['payment_amount'] ?? $data['collected_amount'] ?? 0);
+                    if ($amount <= 0) throw new \Exception("Invalid amount for '$contractNo': $amount");
+
+                    $dateStr = $data['date'] ?? $data['payment_date'] ?? $data['collection_date'] ?? null;
+                    $paymentDate = $dateStr ? Carbon::parse($dateStr) : now();
+                    
+                    $receiptId = $data['receipt_id'] ?? $data['receipt_no'] ?? null;
+                    if ($receiptId && Receipt::where('receipt_id', $receiptId)->exists()) {
+                         throw new \Exception("Receipt ID '$receiptId' already exists");
+                    }
+
+                    if (!$receiptId) {
+                        $receiptId = 'RCT-IMP-' . strtoupper(bin2hex(random_bytes(3)));
+                    }
+
+                    // 4. Financial Calculations
+                    $latestPayment = $loan->latestPayment;
+                    $previousCapital = $latestPayment ? $latestPayment->current_capital_balance : $loan->outstanding_amount;
+                    $previousInterest = $latestPayment ? $latestPayment->current_balance_interest : 0;
+                    $existingSuspense = (float) $loan->suspense_balance;
+
+                    $rental = $loan->rentel ?? 0;
+                    $arrears = $latestPayment ? (float) $latestPayment->arrears : $this->calculateArrears($loan, null, $paymentDate);
+                    $totalDueNow = $rental + $arrears;
+
+                    $totalAvailable = $amount + $existingSuspense;
+                    $amountToApply = min($totalAvailable, $totalDueNow);
+                    
+                    $suspenseGenerated = $amount > $totalDueNow ? ($amount - $totalDueNow) : 0;
+                    $suspenseUsed = min($existingSuspense, $totalDueNow);
+                    
+                    $interestRate = $loan->interest_rate / 100;
+                    $interestDue = $previousCapital * $interestRate;
+                    
+                    $interestPayment = min($amountToApply, $interestDue);
+                    $capitalPayment = $amountToApply - $interestPayment;
+
+                    $newInterestBalance = max(0, $previousInterest + $interestDue - $interestPayment);
+                    $newCapitalBalance = max(0, $previousCapital - $capitalPayment);
+                    $newTotalBalance = $newInterestBalance + $newCapitalBalance;
+                    $newSuspenseBalance = $existingSuspense + $suspenseGenerated - $suspenseUsed;
+
+                    // 5. Create Models
+                    $receipt = Receipt::create([
+                        'receipt_id' => $receiptId,
+                        'staff_id' => $staffId,
+                        'center_id' => $loan->CSU_id,
+                        'group_id' => $loan->group_id,
+                        'customer_id' => $loan->customer_id,
+                        'loan_id' => $loan->id,
+                        'current_due' => $totalDueNow,
+                        'current_due_amount' => $amount,
+                        'current_balance_amount' => $newTotalBalance,
+                        'status' => 'active',
+                        'comments' => $data['comments'] ?? $data['remarks'] ?? 'Imported via CSV'
+                    ]);
+
+                    CustomerLoanPayment::create([
+                        'customer_id' => $loan->customer_id,
+                        'loan_id' => $loan->id,
+                        'receipt_id' => $receipt->id,
+                        'last_payment_amount' => $amount,
+                        'last_payment_date' => $paymentDate,
+                        'full_balance' => $newTotalBalance,
+                        'current_balance_amount' => $newTotalBalance,
+                        'current_capital_balance' => $newCapitalBalance,
+                        'current_balance_interest' => $newInterestBalance,
+                        'interest_amount' => $interestPayment,
+                        'rental_amount' => $rental,
+                        'total_due' => $rental,
+                        'remained_due' => max(0, $totalDueNow - $totalAvailable),
+                        'arrears' => max(0, $totalDueNow - $totalAvailable),
+                        'suspense_generated' => $suspenseGenerated,
+                        'suspense_used' => $suspenseUsed,
+                        'arrears_age' => $this->calculateArrearAge($loan, $paymentDate),
+                    ]);
+
+                    // 6. Update Loan
+                    $loan->outstanding_amount = $newTotalBalance;
+                    $loan->suspense_balance = $newSuspenseBalance;
+                    if ($newTotalBalance <= 0) {
+                        $loan->status = Loan::STATUS_COMPLETED;
+                    }
+                    $loan->save();
+
+                    DB::commit();
+                    $importCount++;
+
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $errorCount++;
+                    $errors[] = "Row $rowNum: " . $e->getMessage();
+                    Log::error("Collection Import Row $rowNum Failed: " . $e->getMessage());
+                }
+            }
+
+            fclose($handle);
+            // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Successfully imported $importCount collections." . ($errorCount > 0 ? " ($errorCount failed)" : ""),
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            // DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Critical Import Failure: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

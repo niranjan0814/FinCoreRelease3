@@ -1,0 +1,5 @@
+contract_no,amount,date,staff_id,receipt_no,comments
+LN-20260107-2B06,1200.00,2026-01-09,ST0001,RCT-20260109-001,Monthly repayment
+LN-20260108-2FD7,850.50,2026-01-08,ST0003,RCT-20260109-002,Weekly collection
+LN-20260107-2B06,500.00,2026-01-09,ST0005,RCT-20260109-003,Partial payment
+

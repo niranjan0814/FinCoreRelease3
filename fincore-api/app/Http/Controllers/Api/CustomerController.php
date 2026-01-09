@@ -608,46 +608,92 @@ class CustomerController extends Controller
                         $customerData['last_name'] = end($nameParts);
                     }
 
-                    // Branch lookup (Try ID, Code, then Name)
+                    // Branch lookup (Priority: Code > ID > Name)
                     if (isset($data['branch']) && !empty($data['branch'])) {
                         $val = trim($data['branch']);
                         \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Branch for '$val'");
 
-                        $branch = \App\Models\Branch::where('id', $val)
-                            ->orWhere('branch_id', $val) // String code in DB
-                            ->orWhere('branch_name', 'like', '%' . $val . '%')
-                            ->first();
+                        // 1. Try Business Code (e.g., BR0001)
+                        $branch = \App\Models\Branch::where('branch_id', $val)->first();
+
+                        // 2. Try System ID (only if numeric)
+                        if (!$branch && is_numeric($val)) {
+                            $branch = \App\Models\Branch::find($val);
+                        }
+
+                        // 3. Try Name (Fuzzy)
+                        if (!$branch) {
+                            $branch = \App\Models\Branch::where('branch_name', 'like', '%' . $val . '%')->first();
+                        }
 
                         if ($branch) {
                             $customerData['branch_id'] = $branch->id;
-                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Branch ID {$branch->id}");
+                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Branch ID {$branch->id} for '$val'");
                         } else {
                             \Illuminate\Support\Facades\Log::error("Row $importCount: Branch not found for '$val'");
-                            throw new \Exception("Could not find Branch matching '$val'");
+                            throw new \Exception("Could not find Branch matching '$val' (checked Code, ID, and Name)");
                         }
                     } else {
                         \Illuminate\Support\Facades\Log::error("Row $importCount: Branch column missing or empty");
                     }
 
-                    // Center lookup (Try ID, Code, then Name)
+                    // Center lookup (Priority: Code > ID > Name)
                     if (isset($data['center']) && !empty($data['center'])) {
                         $val = trim($data['center']);
                         \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Center for '$val'");
 
-                        $center = \App\Models\Center::where('id', $val)
-                            ->orWhere('CSU_id', $val) // String code in DB
-                            ->orWhere('center_name', 'like', '%' . $val . '%')
-                            ->first();
+                        // 1. Try Business Code (e.g., CSU0001)
+                        $center = \App\Models\Center::where('CSU_id', $val)->first();
+
+                        // 2. Try System ID (only if numeric)
+                        if (!$center && is_numeric($val)) {
+                            $center = \App\Models\Center::find($val);
+                        }
+
+                        // 3. Try Name (Fuzzy)
+                        if (!$center) {
+                            $center = \App\Models\Center::where('center_name', 'like', '%' . $val . '%')->first();
+                        }
 
                         if ($center) {
                             $customerData['center_id'] = $center->id;
-                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Center ID {$center->id}");
+                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Center ID {$center->id} for '$val'");
                         } else {
                             \Illuminate\Support\Facades\Log::error("Row $importCount: Center not found for '$val'");
-                            throw new \Exception("Could not find Center matching '$val'");
+                            throw new \Exception("Could not find Center matching '$val' (checked Code, ID, and Name)");
                         }
                     } else {
                         \Illuminate\Support\Facades\Log::error("Row $importCount: Center column missing or empty");
+                    }
+
+                    // Group lookup (Priority: ID > Name) - Scoped to Center
+                    if (isset($data['group']) && !empty($data['group']) && isset($customerData['center_id'])) {
+                        $val = trim($data['group']);
+                        \Illuminate\Support\Facades\Log::info("Row $importCount: Searching Group for '$val' in Center {$customerData['center_id']}");
+
+                        $group = null;
+
+                        // 1. Try System ID (only if numeric)
+                        if (is_numeric($val)) {
+                            $group = \App\Models\Group::where('center_id', $customerData['center_id'])
+                                ->where('id', $val)
+                                ->first();
+                        }
+
+                        // 2. Try Name (Exact)
+                        if (!$group) {
+                            $group = \App\Models\Group::where('center_id', $customerData['center_id'])
+                                ->where('group_name', $val)
+                                ->first();
+                        }
+
+                        if ($group) {
+                            $customerData['grp_id'] = $group->id;
+                            \Illuminate\Support\Facades\Log::info("Row $importCount: Found Group ID {$group->id} for '$val'");
+                        } else {
+                            // Warn but don't fail, as Group is optional (nullable)
+                            \Illuminate\Support\Facades\Log::warning("Row $importCount: Group '$val' not found in Center {$customerData['center_id']}");
+                        }
                     }
 
                     if (!$customerData['customer_code'] || !$customerData['full_name'] || !isset($customerData['branch_id']) || !isset($customerData['center_id'])) {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Search, Filter, Download, Plus, Upload } from 'lucide-react';
+import { Search, Download, Upload } from 'lucide-react';
 import { Loan, LoanStats as LoanStatsType } from '@/types/loan.types';
 import { loanService } from '@/services/loan.service';
 import { authService } from '@/services/auth.service';
@@ -19,6 +19,7 @@ export default function LoanListPage() {
     const [stats, setStats] = useState<LoanStatsType>({
         total_count: 0,
         active_count: 0,
+        completed_count: 0,
         total_disbursed: 0,
         total_outstanding: 0
     });
@@ -139,8 +140,8 @@ export default function LoanListPage() {
             <LoanStats stats={stats} />
 
             {/* Search and Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex-1 relative max-w-md">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                         type="text"
@@ -153,21 +154,33 @@ export default function LoanListPage() {
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                     />
                 </div>
-                <div className="flex items-center gap-2 min-w-[200px]">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => {
-                            setStatusFilter(e.target.value);
+
+                {/* Toggle Buttons - Like Branch Truncation */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => {
+                            setStatusFilter('All');
                             setCurrentPage(1);
                         }}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                        className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${statusFilter === 'All' || statusFilter === 'Active'
+                            ? 'bg-gray-900 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
                     >
-                        <option value="All">All Portfolio</option>
-                        <option value="approved">Approved</option>
-                        <option value="Defaulted">Defaulted</option>
-                        <option value="sent_back">Sent Back / Rejected</option>
-                    </select>
+                        CURRENT LOANS
+                    </button>
+                    <button
+                        onClick={() => {
+                            setStatusFilter('Completed');
+                            setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${statusFilter === 'Completed'
+                            ? 'bg-orange-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
+                        COMPLETED LOANS
+                    </button>
                 </div>
             </div>
 

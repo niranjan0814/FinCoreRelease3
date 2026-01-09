@@ -21,7 +21,7 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
             case 'pending_2nd':
                 return 'bg-yellow-100 text-yellow-700';
             case 'Completed':
-                return 'bg-blue-100 text-blue-700';
+                return 'bg-orange-100 text-orange-700';
             case 'Defaulted':
                 return 'bg-red-100 text-red-700';
             case 'sent_back':
@@ -34,6 +34,7 @@ export function LoanTable({ loans, onView }: LoanTableProps) {
     const formatStatus = (status: string) => {
         if (status === 'approved') return 'Pending for Disburse';
         if (status === 'Active') return 'Disbursed';
+        if (status === 'Completed') return 'Completed';
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
