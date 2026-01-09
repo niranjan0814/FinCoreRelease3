@@ -236,6 +236,8 @@ export default function StaffManagementPage() {
                         onEdit={handleEditUser}
                         onDelete={handleDeleteUser}
                         onRefresh={loadData}
+                        showBranch={currentUserRole !== 'super_admin'}
+                        showAttendance={currentUserRole !== 'super_admin'}
                     />
                 )}
 

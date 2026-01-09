@@ -9,8 +9,10 @@ import { NewComplaintModal } from './modal/NewComplaintModal';
 import { ViewComplaintModal } from './modal/ViewComplaintModal';
 import { Pagination } from '@/components/common/Pagination';
 import { toast } from 'react-toastify';
+import { authService } from '@/services/auth.service';
 
 export default function Complaints() {
+    const isAdmin = authService.hasRole('super_admin') || authService.hasRole('admin');
     const [complaints, setComplaints] = useState<Complaint[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -110,13 +112,15 @@ export default function Complaints() {
                     <h1 className="text-gray-900">Complaints Management</h1>
                     <p className="text-gray-600 mt-1">Track and resolve customer complaints</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    <Plus className="w-5 h-5" />
-                    New Complaint
-                </button>
+                {!isAdmin && (
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="w-5 h-5" />
+                        New Complaint
+                    </button>
+                )}
             </div>
 
             {/* Status Summary Cards */}
