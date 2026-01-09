@@ -107,11 +107,14 @@ class StaffSessionService
                 'auto_logged_out' => true,
                 'status' => StaffSession::STATUS_CLOSED,
                 'worked_minutes' => $workedMinutes,
-                'remarks' => 'System auto-logout at midnight',
+                'remarks' => 'System auto-logout at 23:55',
             ]);
             
-            // Lock user account - SKIP for admin and super_admin
             if ($session->user) {
+                // Force logout by revoking all tokens (this kills the session on the device)
+                $session->user->revokeAllTokens();
+
+                // Lock user account - SKIP for admin and super_admin
                 $isAdminOrSuperAdmin = $session->user->hasRole('super_admin') || $session->user->hasRole('admin');
                 
                 if (!$isAdminOrSuperAdmin) {
