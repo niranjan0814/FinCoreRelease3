@@ -265,6 +265,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                     className={`w-full px-3 py-2 border ${fieldErrors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-700`}
                                     placeholder="Enter full name"
                                     disabled={isEditing && isAdminRole}
+                                    autoComplete="off"
                                 />
                                 {fieldErrors.name && <p className="text-red-500 text-xs mt-1">{fieldErrors.name}</p>}
                             </div>
@@ -280,6 +281,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                     type="text"
                                     className={`w-full px-3 py-2 border ${fieldErrors.name_with_initial ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
                                     placeholder="e.g. A.B.C Perera"
+                                    autoComplete="off"
                                 />
                                 {fieldErrors.name_with_initial && <p className="text-red-500 text-xs mt-1">{fieldErrors.name_with_initial}</p>}
                             </div>
@@ -294,6 +296,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                 type="email"
                                 className={`w-full px-3 py-2 border ${fieldErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
                                 placeholder="user@example.com"
+                                autoComplete="off"
                             />
                             {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
                         </div>
@@ -314,6 +317,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                         type="text"
                                         className={`w-full px-3 py-2 border ${fieldErrors.nic ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
                                         placeholder="National Identity Card"
+                                        autoComplete="off"
                                     />
                                     {fieldErrors.nic && <p className="text-red-500 text-xs mt-1">{fieldErrors.nic}</p>}
                                 </div>
@@ -327,6 +331,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                         type="text"
                                         className={`w-full px-3 py-2 border ${fieldErrors.contactKey ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
                                         placeholder="Mobile Number"
+                                        autoComplete="off"
                                     />
                                     {fieldErrors.contactKey && <p className="text-red-500 text-xs mt-1">{fieldErrors.contactKey}</p>}
                                 </div>
@@ -341,6 +346,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                         min="18"
                                         max="80"
                                         className={`w-full px-3 py-2 border ${fieldErrors.age ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm`}
+                                        autoComplete="off"
                                     />
                                     {fieldErrors.age && <p className="text-red-500 text-xs mt-1">{fieldErrors.age}</p>}
                                 </div>
@@ -404,6 +410,7 @@ export function StaffForm({ onClose, onSubmit, roles, initialData }: StaffFormPr
                                 type={showPassword ? "text" : "password"}
                                 className={`w-full px-3 py-2 border ${fieldErrors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10`}
                                 placeholder="Enter password"
+                                autoComplete="new-password"
                             />
                             {fieldErrors.password && <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>}
                             <button

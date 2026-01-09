@@ -12,9 +12,11 @@ interface StaffTableProps {
     onEdit: (user: User) => void;
     onDelete: (userId: string) => void;
     onRefresh?: () => void; // Callback to refresh the list after actions
+    showBranch?: boolean;
+    showAttendance?: boolean;
 }
 
-export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTableProps) {
+export function StaffTable({ users, onEdit, onDelete, onRefresh, showBranch = true, showAttendance = true }: StaffTableProps) {
     const [selectedStaff, setSelectedStaff] = useState<any>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
@@ -214,12 +216,16 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
         <div>
             <div className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
                 <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
-                    <div className="col-span-2">Name</div>
+                    <div className={
+                        (showBranch && showAttendance) ? "col-span-2" :
+                            (!showBranch && !showAttendance) ? "col-span-5" :
+                                (!showBranch) ? "col-span-3" : "col-span-4"
+                    }>Name</div>
                     <div className="col-span-2">Email</div>
                     <div className="col-span-1">Role</div>
-                    <div className="col-span-1">Branch</div>
+                    {showBranch && <div className="col-span-1">Branch</div>}
                     <div className="col-span-1">Status</div>
-                    <div className="col-span-2">Attendance</div>
+                    {showAttendance && <div className="col-span-2">Attendance</div>}
                     <div className="col-span-3">Actions</div>
                 </div>
             </div>
@@ -235,7 +241,11 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                         <div key={user.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <div className="grid grid-cols-12 gap-4 items-center">
                                 {/* Name */}
-                                <div className="col-span-2 flex items-center gap-3">
+                                <div className={
+                                    (showBranch && showAttendance) ? "col-span-2 flex items-center gap-3" :
+                                        (!showBranch && !showAttendance) ? "col-span-5 flex items-center gap-3" :
+                                            (!showBranch) ? "col-span-3 flex items-center gap-3" : "col-span-4 flex items-center gap-3"
+                                }>
                                     <div className={`w-10 h-10 ${isLocked ? 'bg-red-500' : 'bg-blue-600'} rounded-lg flex items-center justify-center flex-shrink-0 relative`}>
                                         <span className="text-white text-sm font-semibold">{user.name.charAt(0)}</span>
                                         {isLocked && (
@@ -275,9 +285,11 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                                 </div>
 
                                 {/* Branch */}
-                                <div className="col-span-1">
-                                    <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{user.branch}</p>
-                                </div>
+                                {showBranch && (
+                                    <div className="col-span-1">
+                                        <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{user.branch}</p>
+                                    </div>
+                                )}
 
                                 {/* Status */}
                                 <div className="col-span-1">
@@ -290,14 +302,16 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
                                 </div>
 
                                 {/* Attendance */}
-                                <div className="col-span-2">
-                                    {getAttendanceStatusBadge(user)}
-                                    {user.today_session?.login_at && (
-                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 pl-1">
-                                            Login: {new Date(user.today_session.login_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    )}
-                                </div>
+                                {showAttendance && (
+                                    <div className="col-span-2">
+                                        {getAttendanceStatusBadge(user)}
+                                        {user.today_session?.login_at && (
+                                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 pl-1">
+                                                Login: {new Date(user.today_session.login_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Actions */}
                                 <div className="col-span-3 flex items-center gap-1 flex-wrap">
@@ -336,7 +350,7 @@ export function StaffTable({ users, onEdit, onDelete, onRefresh }: StaffTablePro
 
 
                                     {/* Approve/Reject Buttons - Show when attendance is pending */}
-                                    {hasPendingAttendance && (
+                                    {showAttendance && hasPendingAttendance && (
                                         <>
                                             <button
                                                 onClick={() => handleApproveAttendance(user)}

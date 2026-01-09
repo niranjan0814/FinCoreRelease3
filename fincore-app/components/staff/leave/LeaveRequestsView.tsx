@@ -169,7 +169,6 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
                             )}
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Dates</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Days</th>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                             {isAdmin && (
@@ -180,13 +179,13 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {loading ? (
                             <tr>
-                                <td colSpan={isAdmin ? 6 : 4} className="px-6 py-10 text-center text-gray-500">
+                                <td colSpan={isAdmin ? 5 : 3} className="px-6 py-10 text-center text-gray-500">
                                     Loading requests...
                                 </td>
                             </tr>
                         ) : filteredRequests.length === 0 ? (
                             <tr>
-                                <td colSpan={isAdmin ? 6 : 4} className="px-6 py-10 text-center text-gray-500">
+                                <td colSpan={isAdmin ? 5 : 3} className="px-6 py-10 text-center text-gray-500">
                                     No leave requests found.
                                 </td>
                             </tr>
@@ -207,11 +206,7 @@ export const LeaveRequestsView: React.FC<LeaveRequestsViewProps> = ({ isAdmin: i
                                             <span className="text-xs text-gray-500">to {request.endDate}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                            {request.totalDays} day{request.totalDays !== 1 ? 's' : ''}
-                                        </span>
-                                    </td>
+
                                     <td className="px-6 py-4">
                                         <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                                             {request.reason}

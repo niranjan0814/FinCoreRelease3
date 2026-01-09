@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, Edit2 } from 'lucide-react';
 import { Complaint } from '@/types/complaint.types';
 import { StatusBadge, PriorityBadge } from '../shared/ComplaintBadges';
+import { authService } from '@/services/auth.service';
 
 interface ComplaintsTableProps {
     complaints: Complaint[];
@@ -10,6 +11,8 @@ interface ComplaintsTableProps {
 }
 
 export const ComplaintsTable: React.FC<ComplaintsTableProps> = ({ complaints, onView, onEdit }) => {
+    const isAdmin = authService.hasRole('super_admin') || authService.hasRole('admin');
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -99,19 +102,21 @@ export const ComplaintsTable: React.FC<ComplaintsTableProps> = ({ complaints, on
                                 {/* Actions */}
                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                     <div className="flex items-center justify-end gap-2">
+                                        {!isAdmin && complaint.status === 'Open' && (
+                                            <button
+                                                onClick={() => onEdit(complaint)}
+                                                className="p-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:border-amber-400 hover:text-amber-600 hover:shadow-sm transition-all"
+                                                title="Edit Complaint"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => onView(complaint)}
                                             className="p-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:border-blue-400 hover:text-blue-600 hover:shadow-sm transition-all"
                                             title="View Details"
                                         >
                                             <Eye className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => onEdit(complaint)}
-                                            className="p-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:border-amber-400 hover:text-amber-600 hover:shadow-sm transition-all"
-                                            title="Edit Complaint"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </td>

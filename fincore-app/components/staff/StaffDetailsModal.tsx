@@ -9,6 +9,8 @@ interface StaffDetailsModalProps {
 export function StaffDetailsModal({ staff, onClose }: StaffDetailsModalProps) {
     if (!staff) return null;
 
+    const roleName = (staff.role_name || staff.role || '').toLowerCase();
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full shadow-xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
@@ -43,8 +45,8 @@ export function StaffDetailsModal({ staff, onClose }: StaffDetailsModalProps) {
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${staff.account_status === 'active' || staff.is_active
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                                        : 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300'
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                    : 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300'
                                     }`}>
                                     {staff.account_status === 'active' || staff.is_active ? 'Active' : 'Inactive'}
                                 </span>
@@ -125,7 +127,7 @@ export function StaffDetailsModal({ staff, onClose }: StaffDetailsModalProps) {
                         )}
 
                         {/* Branch */}
-                        {(staff.branch_id || staff.branch) && (
+                        {!(roleName === 'admin' || roleName === 'super_admin' || roleName === 'administrator') && (staff.branch_id || staff.branch) && (
                             <div className="flex items-start gap-3">
                                 <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
                                     <Building className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />

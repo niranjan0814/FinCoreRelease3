@@ -98,9 +98,12 @@ export function ViewScheduling() {
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     const filteredCenters = centers.filter(center => {
-        const matchesSearch = center.center_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            center.CSU_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            String(center.branch_id).toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch =
+            (center.center_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (center.CSU_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (center.branch?.branch_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (center.branch?.branch_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(center.branch_id || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchesDay = !selectedDay || (center.open_days && center.open_days.some(s => s.day === selectedDay));
         const matchesStatus = center.status === statusTab;
         return matchesSearch && matchesDay && matchesStatus;

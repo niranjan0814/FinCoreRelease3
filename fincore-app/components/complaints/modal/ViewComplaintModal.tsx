@@ -1,6 +1,7 @@
 import React from 'react';
 import { Complaint } from '@/types/complaint.types';
 import { StatusBadge, PriorityBadge } from '../shared/ComplaintBadges';
+import { authService } from '@/services/auth.service';
 
 interface ViewComplaintModalProps {
     complaint: Complaint;
@@ -9,10 +10,12 @@ interface ViewComplaintModalProps {
 }
 
 export const ViewComplaintModal: React.FC<ViewComplaintModalProps> = ({ complaint, onClose, onStatusChange }) => {
+    const isAdmin = authService.hasRole('super_admin') || authService.hasRole('admin');
+
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
-                
+
                 {/* Header Section */}
                 <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                     <div className="flex justify-between items-start">
@@ -31,27 +34,32 @@ export const ViewComplaintModal: React.FC<ViewComplaintModalProps> = ({ complain
 
                 {/* Body Content */}
                 <div className="p-6 space-y-8 overflow-y-auto">
-                    
+
                     {/* Info Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                         <div className="space-y-1">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</p>
-                            <select
-                                value={complaint.status}
-                                onChange={e => onStatusChange(complaint.id, e.target.value as Complaint['status'])}
-                                className={`block w-full pl-3 pr-8 py-1.5 text-xs font-bold rounded-full border-0 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer transition-all ${
-                                    complaint.status === 'Open' ? 'bg-rose-50 text-rose-700 ring-rose-200' :
-                                    complaint.status === 'In Progress' ? 'bg-amber-50 text-amber-700 ring-amber-200' :
-                                    complaint.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
-                                    'bg-slate-50 text-slate-700 ring-slate-200'
-                                }`}
-                                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em', backgroundRepeat: 'no-repeat' }}
-                            >
-                                <option value="Open">Open</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="Closed">Closed</option>
-                            </select>
+                            {isAdmin ? (
+                                <select
+                                    value={complaint.status}
+                                    onChange={e => onStatusChange(complaint.id, e.target.value as Complaint['status'])}
+                                    className={`block w-full pl-3 pr-8 py-1.5 text-xs font-bold rounded-full border-0 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer transition-all ${complaint.status === 'Open' ? 'bg-rose-50 text-rose-700 ring-rose-200' :
+                                        complaint.status === 'In Progress' ? 'bg-amber-50 text-amber-700 ring-amber-200' :
+                                            complaint.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
+                                                'bg-slate-50 text-slate-700 ring-slate-200'
+                                        }`}
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em', backgroundRepeat: 'no-repeat' }}
+                                >
+                                    <option value="Open">Open</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            ) : (
+                                <div className="pt-1">
+                                    <StatusBadge status={complaint.status} />
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-1">
@@ -91,7 +99,7 @@ export const ViewComplaintModal: React.FC<ViewComplaintModalProps> = ({ complain
                         </div>
 
                         {(complaint.assignedTo || complaint.assignerName) && (
-                           <div className="flex gap-8 py-4 border-y border-slate-50">
+                            <div className="flex gap-8 py-4 border-y border-slate-50">
                                 {complaint.assignedTo && (
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase">Assigned Personnel</p>
@@ -104,7 +112,7 @@ export const ViewComplaintModal: React.FC<ViewComplaintModalProps> = ({ complain
                                         <p className="text-sm font-bold text-slate-700">{complaint.assignerName}</p>
                                     </div>
                                 )}
-                           </div>
+                            </div>
                         )}
 
                         {complaint.resolution && (
